@@ -68,9 +68,12 @@ public sealed class NodeService : IDisposable
     private CameraCapability? _cameraCapability;
     private LocationCapability? _locationCapability;
     private DeviceCapability? _deviceCapability;
+    private DeviceStatusProvider? _deviceStatusProvider;
     private BrowserProxyCapability? _browserProxyCapability;
     private SttCapability? _sttCapability;
     private SpeechToText.SpeechToTextService? _speechToTextService;
+    private TtsCapability? _ttsCapability;
+    private TextToSpeechService? _textToSpeechService;
     private readonly string _dataPath;
     private string? _token;
 
@@ -284,8 +287,19 @@ public sealed class NodeService : IDisposable
             Register(_locationCapability);
         }
 
-        // Device metadata/status capability
-        _deviceCapability = new DeviceCapability(_logger);
+        if (_settings?.NodeTtsEnabled == true)
+        {
+            _textToSpeechService ??= new TextToSpeechService(_logger, _settings);
+            _ttsCapability = new TtsCapability(_logger);
+            _ttsCapability.SpeakRequested += OnTtsSpeakAsync;
+            Register(_ttsCapability);
+        }
+
+        // Device metadata/status capability - dispose previous provider on re-registration
+        _deviceStatusProvider?.Dispose();
+        _deviceStatusProvider = new DeviceStatusProvider(_logger);
+        _deviceStatusProvider.StartCpuSampling();
+        _deviceCapability = new DeviceCapability(_logger, _deviceStatusProvider);
         Register(_deviceCapability);
 
         if (_settings?.NodeSttEnabled == true)
@@ -459,6 +473,8 @@ public sealed class NodeService : IDisposable
             disabled.Add("browser.proxy");
         if (_settings?.NodeSttEnabled != true)
             disabled.Add(SttCapability.TranscribeCommand);
+        if (_settings?.NodeTtsEnabled != true)
+            disabled.AddRange(CommandCenterCommandGroups.DangerousCommands.Where(command => command.StartsWith("tts.", StringComparison.OrdinalIgnoreCase)));
         return disabled;
     }
 
@@ -1277,6 +1293,14 @@ public sealed class NodeService : IDisposable
             TimestampMs = position.Coordinate.Timestamp.ToUnixTimeMilliseconds()
         };
     }
+
+    private Task<TtsSpeakResult> OnTtsSpeakAsync(TtsSpeakArgs args, CancellationToken cancellationToken)
+    {
+        if (_textToSpeechService == null)
+            throw new InvalidOperationException("Text-to-speech service not available");
+
+        return _textToSpeechService.SpeakAsync(args, cancellationToken);
+    }
     
     #endregion
     
@@ -1337,6 +1361,7 @@ public sealed class NodeService : IDisposable
         try { _cameraCaptureService?.Dispose(); } catch { /* ignore */ }
         try { _screenRecordingService?.Dispose(); } catch { /* ignore */ }
         try { _speechToTextService?.Dispose(); } catch { /* ignore */ }
+        try { _textToSpeechService?.Dispose(); } catch { /* ignore */ }
         // MediaResolver owns SocketsHttpHandler + HttpClient (disposeHandler:true);
         // without disposal the connection pool survives node teardown/recreate.
         try { _mediaResolver?.Dispose(); } catch { /* ignore */ }
@@ -1347,6 +1372,8 @@ public sealed class NodeService : IDisposable
         _actionDispatcher = null;
 
         try { _navigationPromptGate.Dispose(); } catch { /* ignore */ }
+
+        try { _deviceStatusProvider?.Dispose(); } catch { /* ignore */ }
 
         if (_canvasWindow != null && !_canvasWindow.IsClosed)
         {

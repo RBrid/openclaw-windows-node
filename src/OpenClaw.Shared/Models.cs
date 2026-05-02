@@ -1023,7 +1023,8 @@ public static class CommandCenterCommandGroups
     [
         "camera.snap",
         "camera.clip",
-        "screen.record"
+        "screen.record",
+        "tts.speak"
     ];
 
     public static readonly string[] DangerousCommands =
@@ -1052,7 +1053,9 @@ public static class CommandCenterCommandGroups
     public static readonly string[] MacNodeParityCommands =
     [
         .. SafeCompanionCommands,
-        .. CommonDangerousCommands,
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
         "system.notify",
         "system.run",
         "system.which",

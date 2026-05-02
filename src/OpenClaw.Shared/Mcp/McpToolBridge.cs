@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -169,6 +168,13 @@ public class McpToolBridge
     }
 
     /// <summary>
+    /// The complete set of commands documented in <see cref="CommandDescriptions"/>.
+    /// Exposed as a stable surface so out-of-process documentation (winnode's
+    /// skill.md) can be drift-tested against the canonical capability surface.
+    /// </summary>
+    public static IReadOnlyCollection<string> KnownCommands => CommandDescriptions.Keys;
+
+    /// <summary>
     /// Per-command descriptions advertised via <c>tools/list</c>. Sourced from
     /// the OpenClaw docs (docs/nodes/index.md, docs/platforms/mac/canvas.md) and
     /// the capability implementations under <c>OpenClaw.Shared.Capabilities</c>.
@@ -233,6 +239,10 @@ public class McpToolBridge
         // stt.* — bounded microphone capture → text. Default-off privacy-sensitive.
         ["stt.transcribe"] =
             "Capture audio from the default microphone for a bounded duration and return the transcribed text. Args: maxDurationMs (int, required, > 0, max 30000), language (string, optional BCP-47 tag like 'en-US' — falls back to the configured SttLanguage setting). Uses Windows.Media.SpeechRecognition (local recognizer; OS may use online services for some configurations). Returns { transcribed, text, durationMs, language }. Requires NodeSttEnabled in tray Settings; when enabled, exposed to both gateway callers (subject to the gateway allowlist) and local MCP clients (subject to the MCP bearer token).",
+
+        // tts.*
+        ["tts.speak"] =
+            "Speak text aloud on the Windows node. Args: text (string, required), provider ('windows'|'elevenlabs', optional), voiceId (string, optional), model (string, optional), interrupt (bool, default false). Returns { spoken, provider, contentType, durationMs }.",
     };
 
     private async Task<object> HandleToolsCallAsync(JsonElement parameters, CancellationToken cancellationToken)
@@ -256,7 +266,13 @@ public class McpToolBridge
         }
 
         var caps = _capabilityProvider();
-        var capability = caps.FirstOrDefault(c => c.CanHandle(name));
+        INodeCapability? capability = null;
+        foreach (var c in caps)
+        {
+            if (!c.CanHandle(name)) continue;
+            capability = c;
+            break;
+        }
         if (capability == null)
             throw new McpToolException($"Unknown tool: {name}");
 
@@ -313,7 +329,7 @@ public class McpToolBridge
             JsonSerializer.Serialize(w, result, PayloadJsonOptions);
             w.WriteEndObject();
         }
-        return System.Text.Encoding.UTF8.GetString(ms.ToArray());
+        return System.Text.Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
     }
 
     private static string WriteError(JsonElement? id, int code, string message)
@@ -330,7 +346,7 @@ public class McpToolBridge
             w.WriteEndObject();
             w.WriteEndObject();
         }
-        return System.Text.Encoding.UTF8.GetString(ms.ToArray());
+        return System.Text.Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length);
     }
 
     /// <summary>
