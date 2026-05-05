@@ -378,6 +378,7 @@ public partial class App : Application
         {
             _globalHotkey = new GlobalHotkeyService();
             _globalHotkey.HotkeyPressed += OnGlobalHotkeyPressed;
+            _globalHotkey.VoiceHotkeyPressed += OnVoiceHotkeyPressed;
             _globalHotkey.Register();
         }
 
@@ -452,6 +453,35 @@ public partial class App : Application
         }
     }
 
+    private VoiceOverlayWindow? _voiceOverlayWindow;
+
+    private void ShowVoiceOverlay()
+    {
+        var voiceService = _nodeService?.VoiceService;
+        if (voiceService == null)
+        {
+            // STT not enabled — show settings
+            ShowHub("voice");
+            return;
+        }
+
+        if (_voiceOverlayWindow == null || _voiceOverlayWindow.AppWindow == null)
+        {
+            _voiceOverlayWindow = new VoiceOverlayWindow(voiceService, new AppLogger());
+            _voiceOverlayWindow.Closed += (_, _) => _voiceOverlayWindow = null;
+            // Wire transcription to gateway chat when connected
+            _voiceOverlayWindow.TextSubmitted += text =>
+            {
+                if (_gatewayClient != null && _currentStatus == ConnectionStatus.Connected)
+                {
+                    _ = _gatewayClient.SendChatMessageAsync(text);
+                }
+            };
+        }
+
+        _voiceOverlayWindow.Activate();
+    }
+
     private void OnTrayContextMenu(TrayIcon sender, TrayIconEventArgs e)
     {
         // Right-click: show menu
@@ -502,6 +532,7 @@ public partial class App : Application
             case "dashboard": OpenDashboard(); break;
             case "canvas": _nodeService?.ShowCanvasWindow(); break;
             case "openchat": ShowChatWindow(); break;
+            case "voice": ShowVoiceOverlay(); break;
             case "webchat": ShowWebChat(); break;
             case "hub": ShowHub(); break;
             case "companion":
@@ -1029,6 +1060,7 @@ public partial class App : Application
         menu.AddMenuItem("Dashboard", "🌐", "dashboard");
         menu.AddMenuItem("Chat", "💬", "openchat");
         menu.AddMenuItem("Canvas", "🎨", "canvas");
+        menu.AddMenuItem("Voice", "🎙️", "voice");
         menu.AddMenuItem("Companion", "🦞", "companion");
         menu.AddMenuItem(LocalizationHelper.GetString("Menu_QuickSend"), "📤", "quicksend");
 
@@ -1850,6 +1882,7 @@ public partial class App : Application
             _hubWindow.NodeIsPendingApproval = _nodeService.IsPendingApproval;
             _hubWindow.NodeShortDeviceId = _nodeService.ShortDeviceId;
             _hubWindow.NodeFullDeviceId = _nodeService.FullDeviceId;
+            _hubWindow.VoiceServiceInstance = _nodeService.VoiceService;
         }
         else
         {
@@ -2286,6 +2319,26 @@ public partial class App : Application
             $"{notification.Type ?? "info"}: {notification.Title ?? "notification"}",
             category: "notification",
             details: notification.Message);
+
+        // Voice overlay: show agent chat responses and optionally speak them
+        if (notification.IsChat && _voiceOverlayWindow != null && !string.IsNullOrEmpty(notification.Message))
+        {
+            _dispatcherQueue?.TryEnqueue(() =>
+            {
+                try
+                {
+                    _voiceOverlayWindow?.AddAgentResponse(notification.Message);
+                }
+                catch { }
+            });
+
+            // TTS: read response aloud if voice is active and TTS enabled
+            if (_settings?.VoiceTtsEnabled == true && _nodeService?.VoiceService?.CurrentMode != VoiceMode.Inactive)
+            {
+                _ = SpeakResponseAsync(notification.Message);
+            }
+        }
+
         if (_settings?.ShowNotifications != true) return;
         if (!ShouldShowNotification(notification)) return;
 
@@ -3602,8 +3655,6 @@ public partial class App : Application
 
     private void OnGlobalHotkeyPressed(object? sender, EventArgs e)
     {
-        // Hotkey events are raised from a dedicated Win32 message-loop thread.
-        // Creating/activating WinUI windows must happen on the app's UI thread.
         if (_dispatcherQueue == null)
         {
             Logger.Warn("Hotkey pressed but DispatcherQueue is null");
@@ -3615,6 +3666,12 @@ public partial class App : Application
         {
             Logger.Warn("Hotkey pressed but failed to enqueue QuickSend on UI thread");
         }
+    }
+
+    private void OnVoiceHotkeyPressed(object? sender, EventArgs e)
+    {
+        if (_dispatcherQueue == null) return;
+        _dispatcherQueue.TryEnqueue(() => ShowVoiceOverlay());
     }
 
     #endregion
@@ -3836,6 +3893,8 @@ public partial class App : Application
             OpenDashboard = OpenDashboard,
             OpenQuickSend = ShowQuickSend,
             OpenHub = (page) => ShowHub(page),
+            OpenVoice = () => ShowVoiceOverlay(),
+            StopVoice = () => _ = StopVoiceAsync(),
             SendMessage = async (msg) =>
             {
                 if (_gatewayClient != null)
@@ -3844,6 +3903,62 @@ public partial class App : Application
                 }
             }
         });
+    }
+
+    private async Task StopVoiceAsync()
+    {
+        var voiceService = _nodeService?.VoiceService;
+        if (voiceService != null)
+            await voiceService.StopAsync();
+    }
+
+    private int _ttsMuteCount;
+
+    private async Task SpeakResponseAsync(string text)
+    {
+        var voiceService = _nodeService?.VoiceService;
+        try
+        {
+            if (voiceService == null || _settings == null) return;
+
+            // Increment mute counter — multiple concurrent TTS won't unmute prematurely
+            Interlocked.Increment(ref _ttsMuteCount);
+            voiceService.IsMutedForPlayback = true;
+
+            var speakText = text.Length > 500 ? text[..500] + "..." : text;
+
+            var speakArgs = new OpenClaw.Shared.Capabilities.TtsSpeakArgs
+            {
+                Text = speakText,
+                Provider = _settings.TtsProvider ?? "windows",
+                VoiceId = _settings.TtsElevenLabsVoiceId,
+                Interrupt = true
+            };
+
+            var tts = new TextToSpeechService(new AppLogger(), _settings);
+            try
+            {
+                await tts.SpeakAsync(speakArgs);
+            }
+            finally
+            {
+                tts.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"TTS response playback failed: {ex.Message}");
+        }
+        finally
+        {
+            // Only unmute when all concurrent TTS operations have finished
+            if (voiceService != null)
+            {
+                await Task.Delay(300);
+                if (Interlocked.Decrement(ref _ttsMuteCount) <= 0)
+                    voiceService.IsMutedForPlayback = false;
+            }
+        }
     }
 
     private static void SendDeepLinkToRunningInstance(string uri)

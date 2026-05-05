@@ -70,6 +70,13 @@ public class SettingsManager
     public string TtsElevenLabsApiKey { get; set; } = "";
     public string TtsElevenLabsModel { get; set; } = "";
     public string TtsElevenLabsVoiceId { get; set; } = "";
+    // Voice / STT
+    public bool NodeSttEnabled { get; set; } = false;
+    public string SttModelName { get; set; } = "base";
+    public string SttLanguage { get; set; } = "auto";
+    public float SttSilenceTimeout { get; set; } = 1.5f;
+    public bool VoiceTtsEnabled { get; set; } = true;
+    public bool VoiceAudioFeedback { get; set; } = true;
     // Local MCP HTTP server (independent of EnableNodeMode)
     public bool EnableMcpServer { get; set; } = false;
     /// <summary>
@@ -147,6 +154,12 @@ public class SettingsManager
                     TtsElevenLabsApiKey = UnprotectSettingSecret(loaded.TtsElevenLabsApiKey) ?? TtsElevenLabsApiKey;
                     TtsElevenLabsModel = loaded.TtsElevenLabsModel ?? TtsElevenLabsModel;
                     TtsElevenLabsVoiceId = loaded.TtsElevenLabsVoiceId ?? TtsElevenLabsVoiceId;
+                    NodeSttEnabled = loaded.NodeSttEnabled;
+                    SttModelName = string.IsNullOrWhiteSpace(loaded.SttModelName) ? SttModelName : loaded.SttModelName;
+                    SttLanguage = string.IsNullOrWhiteSpace(loaded.SttLanguage) ? SttLanguage : loaded.SttLanguage;
+                    SttSilenceTimeout = loaded.SttSilenceTimeout > 0 ? loaded.SttSilenceTimeout : SttSilenceTimeout;
+                    VoiceTtsEnabled = loaded.VoiceTtsEnabled;
+                    VoiceAudioFeedback = loaded.VoiceAudioFeedback;
                     EnableMcpServer = loaded.EnableMcpServer;
                     A2UIImageHosts = loaded.A2UIImageHosts ?? new List<string>();
                     // Legacy McpOnlyMode migration:
@@ -221,6 +234,12 @@ public class SettingsManager
                 TtsElevenLabsApiKey = ProtectSettingSecret(TtsElevenLabsApiKey),
                 TtsElevenLabsModel = string.IsNullOrWhiteSpace(TtsElevenLabsModel) ? null : TtsElevenLabsModel,
                 TtsElevenLabsVoiceId = string.IsNullOrWhiteSpace(TtsElevenLabsVoiceId) ? null : TtsElevenLabsVoiceId,
+                NodeSttEnabled = NodeSttEnabled,
+                SttModelName = SttModelName,
+                SttLanguage = SttLanguage,
+                SttSilenceTimeout = SttSilenceTimeout,
+                VoiceTtsEnabled = VoiceTtsEnabled,
+                VoiceAudioFeedback = VoiceAudioFeedback,
                 EnableMcpServer = EnableMcpServer,
                 A2UIImageHosts = A2UIImageHosts.Count == 0 ? null : new List<string>(A2UIImageHosts),
                 // McpOnlyMode is legacy — never written; remains null in serialized output.

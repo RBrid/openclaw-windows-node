@@ -72,6 +72,8 @@ public sealed class NodeService : IDisposable
     private BrowserProxyCapability? _browserProxyCapability;
     private TtsCapability? _ttsCapability;
     private TextToSpeechService? _textToSpeechService;
+    private SttCapability? _sttCapability;
+    private VoiceService? _voiceService;
     private AppCapability? _appCapability;
     private readonly string _dataPath;
     private string? _token;
@@ -117,6 +119,7 @@ public sealed class NodeService : IDisposable
     private string? _mcpStartupError;
     public bool IsMcpRunning => _mcpServer != null;
     public AppCapability? AppCapability => _appCapability;
+    public VoiceService? VoiceService => _voiceService;
     public string McpEndpoint => McpServerUrl;
     /// <summary>Last MCP server startup error, or null if it started cleanly. Surfaced by Settings UI.</summary>
     public string? McpStartupError => _mcpStartupError;
@@ -305,6 +308,15 @@ public sealed class NodeService : IDisposable
             Register(_ttsCapability);
         }
 
+        if (_settings?.NodeSttEnabled == true)
+        {
+            _voiceService ??= new VoiceService(_logger, _settings);
+            _sttCapability = new SttCapability(_logger);
+            _sttCapability.ListenRequested += OnSttListenAsync;
+            _sttCapability.StatusRequested += OnSttStatusAsync;
+            Register(_sttCapability);
+        }
+
         // Device metadata/status capability - dispose previous provider on re-registration
         _deviceStatusProvider?.Dispose();
         _deviceStatusProvider = new DeviceStatusProvider(_logger);
@@ -475,6 +487,8 @@ public sealed class NodeService : IDisposable
             disabled.Add("browser.proxy");
         if (_settings?.NodeTtsEnabled != true)
             disabled.AddRange(CommandCenterCommandGroups.DangerousCommands.Where(command => command.StartsWith("tts.", StringComparison.OrdinalIgnoreCase)));
+        if (_settings?.NodeSttEnabled != true)
+            disabled.AddRange(new[] { "stt.listen", "stt.status" });
         return disabled;
     }
 
@@ -1301,6 +1315,22 @@ public sealed class NodeService : IDisposable
 
         return _textToSpeechService.SpeakAsync(args, cancellationToken);
     }
+
+    private Task<SttListenResult> OnSttListenAsync(SttListenArgs args, CancellationToken cancellationToken)
+    {
+        if (_voiceService == null)
+            throw new InvalidOperationException("Voice service not available");
+
+        return _voiceService.ListenOnceAsync(args, cancellationToken);
+    }
+
+    private Task<SttStatusResult> OnSttStatusAsync()
+    {
+        if (_voiceService == null)
+            return Task.FromResult(new SttStatusResult { ModelLoaded = false });
+
+        return _voiceService.GetStatusAsync();
+    }
     
     #endregion
     
@@ -1315,6 +1345,7 @@ public sealed class NodeService : IDisposable
         try { _cameraCaptureService?.Dispose(); } catch { /* ignore */ }
         try { _screenRecordingService?.Dispose(); } catch { /* ignore */ }
         try { _textToSpeechService?.Dispose(); } catch { /* ignore */ }
+        try { _voiceService?.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { /* ignore */ }
         // MediaResolver owns SocketsHttpHandler + HttpClient (disposeHandler:true);
         // without disposal the connection pool survives node teardown/recreate.
         try { _mediaResolver?.Dispose(); } catch { /* ignore */ }

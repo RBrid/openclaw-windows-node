@@ -1,0 +1,471 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using NAudio.CoreAudioApi;
+using NAudio.Wave;
+using OpenClaw.Shared;
+using OpenClaw.Shared.Audio;
+
+namespace OpenClawTray.Services;
+
+/// <summary>
+/// End-to-end audio pipeline: microphone capture → resample → VAD → buffer → Whisper STT.
+/// Fires events for transcription results, VAD state changes, and audio levels.
+/// </summary>
+public sealed class AudioPipeline : IAsyncDisposable
+{
+    private readonly IOpenClawLogger _logger;
+    private readonly SpeechToTextService _stt;
+    private readonly VoiceActivityDetector _vad;
+
+    private WasapiCapture? _capture;
+    private WaveFormat? _captureFormat;
+    private AudioPipelineOptions _options = new();
+
+    // Resampling state
+    private readonly List<float> _resampleBuffer = new();
+
+    // VAD + buffering state
+    private readonly List<float> _speechBuffer = new();
+    // Pre-buffer: keeps the last ~300ms of audio before VAD triggers,
+    // so the beginning of speech isn't lost.
+    private readonly Queue<float[]> _preBuffer = new();
+    private const int PreBufferChunks = 10; // ~320ms at 512 samples/16kHz
+    private bool _isSpeaking;
+    private int _silenceChunksCount;
+    private int _silenceChunksThreshold;
+
+    // State
+    private AudioPipelineState _state = AudioPipelineState.Stopped;
+    private CancellationTokenSource? _cts;
+
+    /// <summary>Fired when a speech segment has been transcribed.</summary>
+    public event Action<TranscriptionResult>? TranscriptionReady;
+
+    /// <summary>Fired when VAD detects speech start/end.</summary>
+    public event Action<VadEvent>? VoiceActivityChanged;
+
+    /// <summary>Fired with RMS audio level for visualization (0.0–1.0).</summary>
+    public event Action<float>? AudioLevelChanged;
+
+    /// <summary>Fired when pipeline state changes.</summary>
+    public event Action<AudioPipelineState>? StateChanged;
+
+    /// <summary>Fired with diagnostic status messages for the UI.</summary>
+    public event Action<string>? DiagnosticMessage;
+
+    /// <summary>Current pipeline state.</summary>
+    public AudioPipelineState State => _state;
+
+    /// <summary>When true, incoming audio is ignored (prevents echo during TTS playback).</summary>
+    public bool IsMuted { get; set; }
+
+    public AudioPipeline(IOpenClawLogger logger, SpeechToTextService stt, VoiceActivityDetector vad)
+    {
+        _logger = logger;
+        _stt = stt;
+        _vad = vad;
+    }
+
+    /// <summary>Start capturing and processing audio.</summary>
+    public async Task StartAsync(AudioPipelineOptions options, CancellationToken cancellationToken = default)
+    {
+        if (_state != AudioPipelineState.Stopped)
+            throw new InvalidOperationException($"Pipeline is {_state}, must be Stopped to start.");
+
+        _options = options;
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        // Calculate silence threshold: how many VAD chunks = silence timeout
+        float chunkDurationSec = (float)VoiceActivityDetector.ChunkSamples / VoiceActivityDetector.SampleRate;
+        _silenceChunksThreshold = Math.Max(1, (int)(options.SilenceTimeoutSeconds / chunkDurationSec));
+
+        SetState(AudioPipelineState.Starting);
+
+        try
+        {
+            // WASAPI COM objects must be created on an MTA thread, not the
+            // WinUI STA dispatcher thread. Run capture init on the thread pool.
+            await Task.Run(() =>
+            {
+                _capture = new WasapiCapture();
+                _captureFormat = _capture.WaveFormat;
+                _capture.DataAvailable += OnDataAvailable;
+                _capture.RecordingStopped += OnRecordingStopped;
+                _capture.StartRecording();
+            });
+
+            _speechBuffer.Clear();
+            _resampleBuffer.Clear();
+            _isSpeaking = false;
+            _silenceChunksCount = 0;
+            _dataCallbackCount = 0;
+            _vadChunkCount = 0;
+
+            SetState(AudioPipelineState.Listening);
+            var sttStatus = _stt.IsModelLoaded ? "loaded" : "NOT loaded";
+            _logger.Info($"Audio pipeline started: {_captureFormat.SampleRate}Hz {_captureFormat.BitsPerSample}bit {_captureFormat.Channels}ch → 16kHz mono, VAD=energy, STT={sttStatus}");
+            DiagnosticMessage?.Invoke($"Mic: {_captureFormat.SampleRate}Hz, STT model: {sttStatus}");
+        }
+        catch (System.Runtime.InteropServices.COMException ex) when (
+            ex.HResult == unchecked((int)0x80070005) || // E_ACCESSDENIED
+            ex.HResult == unchecked((int)0x88890008))   // AUDCLNT_E_DEVICE_INVALIDATED
+        {
+            _logger.Error("Microphone access denied", ex);
+            SetState(AudioPipelineState.Error);
+            DiagnosticMessage?.Invoke("⚠️ Microphone access denied — check Windows Settings → Privacy → Microphone");
+            throw new InvalidOperationException(
+                "Microphone access denied. Open Windows Settings → Privacy & Security → Microphone and enable 'Let desktop apps access your microphone'.",
+                ex);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to start audio capture", ex);
+            SetState(AudioPipelineState.Error);
+            DiagnosticMessage?.Invoke($"⚠️ Mic error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>Stop capturing and processing.</summary>
+    public async Task StopAsync()
+    {
+        if (_state == AudioPipelineState.Stopped)
+            return;
+
+        _cts?.Cancel();
+
+        if (_capture != null)
+        {
+            try { _capture.StopRecording(); }
+            catch (Exception ex) { _logger.Error("Error stopping capture", ex); }
+        }
+
+        // If there's buffered speech, transcribe it before stopping
+        if (_speechBuffer.Count > 0 && _stt.IsModelLoaded)
+        {
+            await FlushSpeechBufferAsync();
+        }
+
+        CleanupCapture();
+        SetState(AudioPipelineState.Stopped);
+        _logger.Info("Audio pipeline stopped");
+    }
+
+    private int _dataCallbackCount;
+
+    private void OnDataAvailable(object? sender, WaveInEventArgs e)
+    {
+        if (_cts?.IsCancellationRequested == true || e.BytesRecorded == 0 || IsMuted)
+            return;
+
+        _dataCallbackCount++;
+
+        try
+        {
+            var sourceSamples = ConvertToFloat(e.Buffer, e.BytesRecorded, _captureFormat!);
+            var resampled = ResampleTo16kMono(sourceSamples, _captureFormat!);
+
+            // Amplify: many laptop mics produce very low levels.
+            const float gain = 5.0f;
+            for (int i = 0; i < resampled.Length; i++)
+                resampled[i] = Math.Clamp(resampled[i] * gain, -1.0f, 1.0f);
+
+            // Compute RMS for level visualization
+            if (resampled.Length > 0)
+            {
+                float sumSquares = 0;
+                for (int i = 0; i < resampled.Length; i++)
+                    sumSquares += resampled[i] * resampled[i];
+                var rms = MathF.Sqrt(sumSquares / resampled.Length);
+                AudioLevelChanged?.Invoke(Math.Clamp(rms * 3f, 0f, 1f));
+            }
+
+            _resampleBuffer.AddRange(resampled);
+            ProcessVadChunks();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Error processing audio data", ex);
+            if (_dataCallbackCount <= 3)
+                try { DiagnosticMessage?.Invoke($"⚠️ Audio error: {ex.Message}"); } catch { }
+        }
+    }
+
+    private int _vadChunkCount;
+    private int _speechChunkCount; // how many speech chunks in current utterance
+
+    private void ProcessVadChunks()
+    {
+        while (_resampleBuffer.Count >= VoiceActivityDetector.ChunkSamples)
+        {
+            var chunk = _resampleBuffer.GetRange(0, VoiceActivityDetector.ChunkSamples).ToArray();
+            _resampleBuffer.RemoveRange(0, VoiceActivityDetector.ChunkSamples);
+
+            // Compute RMS energy of this chunk
+            float energy = 0;
+            for (int i = 0; i < chunk.Length; i++)
+                energy += chunk[i] * chunk[i];
+            energy = MathF.Sqrt(energy / chunk.Length);
+
+            _vadChunkCount++;
+
+            // Hysteresis: use a higher threshold to START detecting speech,
+            // and a lower threshold to STAY in speech mode. This prevents
+            // brief pauses between words from ending the utterance.
+            const float startThreshold = 0.03f;  // energy to begin speech
+            const float stayThreshold = 0.008f;   // energy to remain in speech (much lower)
+
+            bool chunkIsSpeech = _isSpeaking
+                ? energy >= stayThreshold
+                : energy >= startThreshold;
+
+            if (chunkIsSpeech)
+            {
+                if (!_isSpeaking)
+                {
+                    _isSpeaking = true;
+                    _silenceChunksCount = 0;
+                    _speechChunkCount = 0;
+                    try { VoiceActivityChanged?.Invoke(new VadEvent { IsSpeaking = true, Probability = energy }); } catch { }
+                    try { DiagnosticMessage?.Invoke("🗣️ Listening..."); } catch { }
+
+                    // Prepend the pre-buffer so we don't lose the speech onset
+                    while (_preBuffer.Count > 0)
+                        _speechBuffer.AddRange(_preBuffer.Dequeue());
+                }
+                _speechBuffer.AddRange(chunk);
+                _speechChunkCount++;
+                _silenceChunksCount = 0;
+            }
+            else if (_isSpeaking)
+            {
+                _speechBuffer.AddRange(chunk);
+                _silenceChunksCount++;
+
+                if (_silenceChunksCount >= _silenceChunksThreshold)
+                {
+                    _isSpeaking = false;
+                    try { VoiceActivityChanged?.Invoke(new VadEvent { IsSpeaking = false, Probability = energy }); } catch { }
+
+                    var samples = _speechBuffer.ToArray();
+                    _speechBuffer.Clear();
+                    _silenceChunksCount = 0;
+
+                    // Only transcribe if we had enough speech (not just a brief noise)
+                    var durationSec = (float)samples.Length / VoiceActivityDetector.SampleRate;
+                    if (_speechChunkCount < 10) // less than ~320ms of actual speech
+                    {
+                        try { DiagnosticMessage?.Invoke("Speak now — I'm listening"); } catch { }
+                    }
+                    else
+                    {
+                        try { DiagnosticMessage?.Invoke($"Transcribing {durationSec:F1}s of speech..."); } catch { }
+
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await TranscribeSamplesAsync(samples);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Error("Transcription task failed", ex);
+                                try { DiagnosticMessage?.Invoke($"⚠️ Error: {ex.Message}"); } catch { }
+                            }
+                        });
+                    }
+                }
+            }
+            else
+            {
+                // Not speaking — maintain rolling pre-buffer
+                _preBuffer.Enqueue(chunk);
+                while (_preBuffer.Count > PreBufferChunks)
+                    _preBuffer.Dequeue();
+            }
+        }
+    }
+
+    private async Task TranscribeSamplesAsync(float[] samples)
+    {
+        if (!_stt.IsModelLoaded || samples.Length == 0)
+        {
+            DiagnosticMessage?.Invoke(_stt.IsModelLoaded ? "Empty audio segment" : "⚠️ Model not loaded");
+            return;
+        }
+
+        // Skip very short segments (< 0.3 seconds)
+        if (samples.Length < VoiceActivityDetector.SampleRate * 0.3f)
+        {
+            DiagnosticMessage?.Invoke("Segment too short, skipped");
+            return;
+        }
+
+        SetState(AudioPipelineState.Processing);
+        try
+        {
+            var results = await _stt.TranscribeAsync(
+                samples,
+                _options.Language,
+                _cts?.Token ?? CancellationToken.None);
+
+            if (results.Count == 0)
+            {
+                try { DiagnosticMessage?.Invoke("No speech recognized in segment"); } catch { }
+            }
+
+            foreach (var result in results)
+            {
+                _logger.Info($"Transcription: \"{result.Text}\"");
+                try { TranscriptionReady?.Invoke(result); } catch (Exception ex)
+                {
+                    _logger.Error("TranscriptionReady handler failed", ex);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Transcription failed", ex);
+            try { DiagnosticMessage?.Invoke($"⚠️ Transcription error: {ex.Message}"); } catch { }
+        }
+        finally
+        {
+            if (_state == AudioPipelineState.Processing)
+                SetState(AudioPipelineState.Listening);
+        }
+    }
+
+    private async Task FlushSpeechBufferAsync()
+    {
+        if (_speechBuffer.Count == 0) return;
+
+        var samples = _speechBuffer.ToArray();
+        _speechBuffer.Clear();
+
+        try
+        {
+            await TranscribeSamplesAsync(samples);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Flush transcription failed", ex);
+        }
+    }
+
+    private void OnRecordingStopped(object? sender, StoppedEventArgs e)
+    {
+        if (e.Exception != null)
+        {
+            _logger.Error("Recording stopped with error", e.Exception);
+            SetState(AudioPipelineState.Error);
+            DiagnosticMessage?.Invoke($"⚠️ Microphone error: {e.Exception.Message}");
+        }
+    }
+
+    /// <summary>Convert raw audio bytes to float samples based on wave format.</summary>
+    private static float[] ConvertToFloat(byte[] buffer, int bytesRecorded, WaveFormat format)
+    {
+        int bytesPerSample = format.BitsPerSample / 8;
+        int sampleCount = bytesRecorded / bytesPerSample;
+        var result = new float[sampleCount];
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            int offset = i * bytesPerSample;
+            if (offset + bytesPerSample > bytesRecorded) break;
+
+            result[i] = format.BitsPerSample switch
+            {
+                16 => BitConverter.ToInt16(buffer, offset) / 32768f,
+                32 when format.Encoding == WaveFormatEncoding.IeeeFloat
+                    => BitConverter.ToSingle(buffer, offset),
+                32 => BitConverter.ToInt32(buffer, offset) / (float)int.MaxValue,
+                24 => (buffer[offset] | (buffer[offset + 1] << 8) | ((sbyte)buffer[offset + 2] << 16)) / 8388608f,
+                _ => 0f
+            };
+        }
+
+        return result;
+    }
+
+    /// <summary>Resample multi-channel audio to 16 kHz mono.</summary>
+    private static float[] ResampleTo16kMono(float[] input, WaveFormat sourceFormat)
+    {
+        int sourceRate = sourceFormat.SampleRate;
+        int channels = sourceFormat.Channels;
+
+        // First: downmix to mono if needed
+        float[] mono;
+        if (channels > 1)
+        {
+            int monoSamples = input.Length / channels;
+            mono = new float[monoSamples];
+            for (int i = 0; i < monoSamples; i++)
+            {
+                float sum = 0;
+                for (int ch = 0; ch < channels; ch++)
+                    sum += input[i * channels + ch];
+                mono[i] = sum / channels;
+            }
+        }
+        else
+        {
+            mono = input;
+        }
+
+        // If already 16kHz, return as-is
+        if (sourceRate == 16000)
+            return mono;
+
+        // Simple linear interpolation resampling
+        double ratio = (double)sourceRate / 16000;
+        int outputSamples = (int)(mono.Length / ratio);
+        if (outputSamples == 0) return [];
+
+        var output = new float[outputSamples];
+        for (int i = 0; i < outputSamples; i++)
+        {
+            double srcIndex = i * ratio;
+            int idx = (int)srcIndex;
+            float frac = (float)(srcIndex - idx);
+
+            if (idx + 1 < mono.Length)
+                output[i] = mono[idx] * (1 - frac) + mono[idx + 1] * frac;
+            else if (idx < mono.Length)
+                output[i] = mono[idx];
+        }
+
+        return output;
+    }
+
+    private void SetState(AudioPipelineState newState)
+    {
+        if (_state == newState) return;
+        _state = newState;
+        StateChanged?.Invoke(newState);
+    }
+
+    private void CleanupCapture()
+    {
+        if (_capture != null)
+        {
+            _capture.DataAvailable -= OnDataAvailable;
+            _capture.RecordingStopped -= OnRecordingStopped;
+            _capture.Dispose();
+            _capture = null;
+        }
+
+        _cts?.Dispose();
+        _cts = null;
+        _resampleBuffer.Clear();
+        _speechBuffer.Clear();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopAsync();
+    }
+}

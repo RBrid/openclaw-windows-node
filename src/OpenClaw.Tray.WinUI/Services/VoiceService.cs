@@ -1,0 +1,456 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using OpenClaw.Shared;
+using OpenClaw.Shared.Audio;
+using OpenClaw.Shared.Capabilities;
+
+namespace OpenClawTray.Services;
+
+/// <summary>Voice interaction modes.</summary>
+public enum VoiceMode
+{
+    Inactive,
+    PushToTalk,
+    VoiceChat
+}
+
+/// <summary>
+/// Orchestrates voice interactions: push-to-talk and voice chat session modes.
+/// Manages the audio pipeline lifecycle and coordinates with the gateway.
+/// </summary>
+public sealed class VoiceService : IAsyncDisposable
+{
+    private readonly IOpenClawLogger _logger;
+    private readonly SettingsManager _settings;
+    private readonly SpeechToTextService _stt;
+    private readonly VoiceActivityDetector _vad;
+    private readonly WhisperModelManager _modelManager;
+    private AudioPipeline? _pipeline;
+    private VoiceMode _currentMode = VoiceMode.Inactive;
+    private CancellationTokenSource? _sessionCts;
+
+    // Path to the bundled Silero VAD model (deployed with the app)
+    private string? _vadModelPath;
+
+    /// <summary>Current voice interaction mode.</summary>
+    public VoiceMode CurrentMode => _currentMode;
+
+    /// <summary>Whether a Whisper model is loaded and ready.</summary>
+    public bool IsModelLoaded => _stt.IsModelLoaded;
+
+    /// <summary>Whether the configured model has been downloaded.</summary>
+    public bool IsModelDownloaded => _modelManager.IsModelDownloaded(_settings.SttModelName);
+
+    /// <summary>Fired when a speech segment is transcribed.</summary>
+    public event Action<string>? TranscriptionReceived;
+
+    /// <summary>Fired when voice mode changes.</summary>
+    public event Action<VoiceMode>? ModeChanged;
+
+    /// <summary>Fired when VAD state changes (speaking/silence).</summary>
+    public event Action<bool>? SpeakingChanged;
+
+    /// <summary>Fired with audio level for waveform visualization (0.0–1.0).</summary>
+    public event Action<float>? AudioLevelChanged;
+
+    /// <summary>Fired with diagnostic messages for the UI.</summary>
+    public event Action<string>? DiagnosticMessage;
+
+    /// <summary>Fired when pipeline state changes.</summary>
+    public event Action<AudioPipelineState>? PipelineStateChanged;
+
+    /// <summary>When true, the pipeline ignores audio input (used during TTS playback to prevent echo).</summary>
+    public bool IsMutedForPlayback
+    {
+        get => _pipeline?.IsMuted ?? false;
+        set
+        {
+            if (_pipeline != null)
+                _pipeline.IsMuted = value;
+        }
+    }
+
+    public VoiceService(IOpenClawLogger logger, SettingsManager settings)
+    {
+        _logger = logger;
+        _settings = settings;
+        _stt = new SpeechToTextService(logger);
+        _vad = new VoiceActivityDetector(logger);
+        _modelManager = new WhisperModelManager(SettingsManager.SettingsDirectoryPath, logger);
+    }
+
+    /// <summary>
+    /// Ensure the VAD and STT models are loaded and ready.
+    /// Downloads the Whisper model if needed.
+    /// </summary>
+    public async Task InitializeAsync(
+        IProgress<(long downloaded, long total)>? downloadProgress = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Load VAD model
+        if (!_vad.IsLoaded)
+        {
+            var vadPath = FindVadModelPath();
+            if (vadPath == null)
+            {
+                // Auto-download Silero VAD model
+                vadPath = await DownloadVadModelAsync(cancellationToken);
+            }
+            if (vadPath != null)
+            {
+                _vad.LoadModel(vadPath);
+            }
+            else
+            {
+                _logger.Info("Silero VAD model not found — VAD will be unavailable");
+            }
+        }
+
+        // Download Whisper model if needed
+        var modelName = _settings.SttModelName;
+        if (!_modelManager.IsModelDownloaded(modelName))
+        {
+            _logger.Info($"Downloading Whisper model '{modelName}'...");
+            await _modelManager.DownloadModelAsync(modelName, downloadProgress, cancellationToken);
+        }
+
+        // Load Whisper model
+        if (!_stt.IsModelLoaded)
+        {
+            var modelPath = _modelManager.GetModelPath(modelName);
+            _stt.LoadModel(modelPath);
+        }
+    }
+
+    /// <summary>
+    /// Start push-to-talk: begins listening immediately.
+    /// Call <see cref="StopPushToTalkAsync"/> when the user releases the key.
+    /// </summary>
+    public async Task StartPushToTalkAsync()
+    {
+        if (_currentMode != VoiceMode.Inactive)
+        {
+            _logger.Info("Voice already active, ignoring PTT start");
+            return;
+        }
+
+        await EnsureInitializedAsync();
+        SetMode(VoiceMode.PushToTalk);
+
+        _sessionCts = new CancellationTokenSource();
+        _pipeline = new AudioPipeline(_logger, _stt, _vad);
+        WirePipelineEvents(_pipeline);
+
+        var options = new AudioPipelineOptions
+        {
+            ModelPath = _modelManager.GetModelPath(_settings.SttModelName),
+            Language = _settings.SttLanguage,
+            SilenceTimeoutSeconds = 30, // For PTT, don't auto-stop on silence
+            VadThreshold = 0.5f
+        };
+
+        try
+        {
+            await _pipeline.StartAsync(options, _sessionCts.Token);
+            _logger.Info("Push-to-talk started");
+        }
+        catch
+        {
+            // Clean up on failure so the service isn't stuck in a broken state
+            await CleanupSessionAsync();
+            throw;
+        }
+    }
+
+    /// <summary>Stop push-to-talk.</summary>
+    public Task StopPushToTalkAsync() => StopAsync();
+
+    /// <summary>
+    /// Start a voice chat session with continuous listening and auto-submit on silence.
+    /// </summary>
+    public async Task StartVoiceChatAsync()
+    {
+        if (_currentMode != VoiceMode.Inactive)
+        {
+            _logger.Info("Voice already active, ignoring voice chat start");
+            return;
+        }
+
+        await EnsureInitializedAsync();
+        SetMode(VoiceMode.VoiceChat);
+
+        _sessionCts = new CancellationTokenSource();
+        _pipeline = new AudioPipeline(_logger, _stt, _vad);
+        WirePipelineEvents(_pipeline);
+
+        var options = new AudioPipelineOptions
+        {
+            ModelPath = _modelManager.GetModelPath(_settings.SttModelName),
+            Language = _settings.SttLanguage,
+            SilenceTimeoutSeconds = _settings.SttSilenceTimeout,
+            VadThreshold = 0.5f
+        };
+
+        try
+        {
+            await _pipeline.StartAsync(options, _sessionCts.Token);
+            _logger.Info("Voice chat session started");
+        }
+        catch
+        {
+            await CleanupSessionAsync();
+            throw;
+        }
+    }
+
+    /// <summary>Stop the current voice chat session.</summary>
+    public Task StopVoiceChatAsync() => StopAsync();
+
+    /// <summary>Stop any active voice mode.</summary>
+    public async Task StopAsync()
+    {
+        if (_currentMode == VoiceMode.Inactive) return;
+        await CleanupSessionAsync();
+    }
+
+    private async Task CleanupSessionAsync()
+    {
+        if (_pipeline != null)
+        {
+            try { await _pipeline.StopAsync(); } catch { }
+            try { await _pipeline.DisposeAsync(); } catch { }
+            _pipeline = null;
+        }
+
+        _sessionCts?.Cancel();
+        _sessionCts?.Dispose();
+        _sessionCts = null;
+
+        SetMode(VoiceMode.Inactive);
+    }
+
+    /// <summary>
+    /// Handle an agent-initiated stt.listen request:
+    /// start the mic, wait for speech + silence, return transcription.
+    /// </summary>
+    public async Task<SttListenResult> ListenOnceAsync(SttListenArgs args, CancellationToken cancellationToken)
+    {
+        await EnsureInitializedAsync();
+
+        using var timeoutCts = new CancellationTokenSource(args.TimeoutMs);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        var pipeline = new AudioPipeline(_logger, _stt, _vad);
+        var tcs = new TaskCompletionSource<SttListenResult>();
+        var sw = Stopwatch.StartNew();
+        var allSegments = new List<SttSegment>();
+        var allText = new List<string>();
+
+        pipeline.TranscriptionReady += result =>
+        {
+            allText.Add(result.Text);
+            allSegments.Add(new SttSegment
+            {
+                Text = result.Text,
+                StartMs = (int)result.Start.TotalMilliseconds,
+                EndMs = (int)result.End.TotalMilliseconds
+            });
+
+            // Complete on first transcription result
+            tcs.TrySetResult(new SttListenResult
+            {
+                Text = string.Join(" ", allText),
+                Language = result.Language,
+                DurationMs = (int)sw.ElapsedMilliseconds,
+                Segments = allSegments
+            });
+        };
+
+        var options = new AudioPipelineOptions
+        {
+            Language = args.Language,
+            SilenceTimeoutSeconds = 2.0f,
+            VadThreshold = 0.5f
+        };
+
+        try
+        {
+            await pipeline.StartAsync(options, linkedCts.Token);
+
+            using var reg = linkedCts.Token.Register(() =>
+            {
+                if (allText.Count > 0)
+                {
+                    tcs.TrySetResult(new SttListenResult
+                    {
+                        Text = string.Join(" ", allText),
+                        DurationMs = (int)sw.ElapsedMilliseconds,
+                        Segments = allSegments
+                    });
+                }
+                else
+                {
+                    tcs.TrySetException(new TimeoutException("No speech detected within timeout"));
+                }
+            });
+
+            return await tcs.Task;
+        }
+        finally
+        {
+            await pipeline.StopAsync();
+            await pipeline.DisposeAsync();
+        }
+    }
+
+    /// <summary>Get current STT status for the stt.status command.</summary>
+    public Task<SttStatusResult> GetStatusAsync()
+    {
+        return Task.FromResult(new SttStatusResult
+        {
+            ModelLoaded = _stt.IsModelLoaded,
+            ModelName = _stt.IsModelLoaded ? _settings.SttModelName : null,
+            IsListening = _currentMode != VoiceMode.Inactive
+        });
+    }
+
+    /// <summary>
+    /// Download the configured Whisper model with progress reporting.
+    /// </summary>
+    public Task DownloadModelAsync(
+        string? modelName = null,
+        IProgress<(long downloaded, long total)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        return _modelManager.DownloadModelAsync(
+            modelName ?? _settings.SttModelName,
+            progress,
+            cancellationToken);
+    }
+
+    /// <summary>Check if the specified model is downloaded.</summary>
+    public bool CheckModelDownloaded(string? modelName = null)
+        => _modelManager.IsModelDownloaded(modelName ?? _settings.SttModelName);
+
+    /// <summary>Get available model information.</summary>
+    public WhisperModelInfo[] GetAvailableModels() => WhisperModelManager.AvailableModels;
+
+    private async Task EnsureInitializedAsync()
+    {
+        if (!_stt.IsModelLoaded)
+        {
+            await InitializeAsync();
+        }
+    }
+
+    private void WirePipelineEvents(AudioPipeline pipeline)
+    {
+        pipeline.TranscriptionReady += result =>
+        {
+            TranscriptionReceived?.Invoke(result.Text);
+        };
+
+        pipeline.VoiceActivityChanged += vad =>
+        {
+            SpeakingChanged?.Invoke(vad.IsSpeaking);
+        };
+
+        pipeline.AudioLevelChanged += level =>
+        {
+            AudioLevelChanged?.Invoke(level);
+        };
+
+        pipeline.StateChanged += state =>
+        {
+            PipelineStateChanged?.Invoke(state);
+        };
+
+        pipeline.DiagnosticMessage += msg =>
+        {
+            DiagnosticMessage?.Invoke(msg);
+        };
+    }
+
+    private void SetMode(VoiceMode mode)
+    {
+        if (_currentMode == mode) return;
+        _currentMode = mode;
+        ModeChanged?.Invoke(mode);
+        _logger.Info($"Voice mode changed: {mode}");
+    }
+
+    /// <summary>
+    /// Locate the Silero VAD ONNX model. Looks in the app's Assets folder
+    /// and the models directory.
+    /// </summary>
+    private string? FindVadModelPath()
+    {
+        if (_vadModelPath != null && File.Exists(_vadModelPath))
+            return _vadModelPath;
+
+        // Check Assets directory (deployed with the app)
+        var assetsPath = Path.Combine(AppContext.BaseDirectory, "Assets", "silero_vad.onnx");
+        if (File.Exists(assetsPath))
+        {
+            _vadModelPath = assetsPath;
+            return assetsPath;
+        }
+
+        // Check models directory
+        var modelsPath = Path.Combine(SettingsManager.SettingsDirectoryPath, "models", "silero_vad.onnx");
+        if (File.Exists(modelsPath))
+        {
+            _vadModelPath = modelsPath;
+            return modelsPath;
+        }
+
+        return null;
+    }
+
+    private const string VadDownloadUrl =
+        "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx";
+
+    /// <summary>Download the Silero VAD ONNX model if not already present.</summary>
+    private async Task<string?> DownloadVadModelAsync(CancellationToken cancellationToken)
+    {
+        var destPath = Path.Combine(SettingsManager.SettingsDirectoryPath, "models", "silero_vad.onnx");
+        if (File.Exists(destPath))
+            return destPath;
+
+        _logger.Info("Downloading Silero VAD model...");
+        Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
+        var tempPath = destPath + ".tmp";
+        try
+        {
+            using var http = new System.Net.Http.HttpClient();
+            http.Timeout = TimeSpan.FromMinutes(5);
+            using var response = await http.GetAsync(VadDownloadUrl, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await response.Content.CopyToAsync(fs, cancellationToken);
+            fs.Close();
+            File.Move(tempPath, destPath, overwrite: true);
+            _logger.Info($"Silero VAD model downloaded ({new FileInfo(destPath).Length:N0} bytes)");
+            _vadModelPath = destPath;
+            return destPath;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Failed to download VAD model", ex);
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            return null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopAsync();
+        _stt.Dispose();
+        _vad.Dispose();
+    }
+}

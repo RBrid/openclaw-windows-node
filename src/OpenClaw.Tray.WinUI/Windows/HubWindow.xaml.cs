@@ -37,6 +37,7 @@ public sealed partial class HubWindow : WindowEx
     public bool NodeIsPendingApproval { get; set; }
     public string? LastAuthError { get; set; }
     public string? NodeShortDeviceId { get; set; }
+    public VoiceService? VoiceServiceInstance { get; set; }
     public string? NodeFullDeviceId { get; set; }
 
     // Cached gateway data — pages read these on navigation
@@ -540,6 +541,7 @@ public sealed partial class HubWindow : WindowEx
                 break;
             case PermissionsPage permissions: permissions.Initialize(this); break;
             case CapabilitiesPage capabilities: capabilities.Initialize(this); break;
+            case VoiceSettingsPage voice: voice.Initialize(this, VoiceServiceInstance); break;
             case ConversationsPage convos: convos.Initialize(this); break;
             case ActivityPage activity: activity.Initialize(this); break;
             case AgentEventsPage agentEvents:
@@ -588,6 +590,7 @@ public sealed partial class HubWindow : WindowEx
         "usage" => typeof(UsagePage),
         "bindings" => typeof(BindingsPage),
         "capabilities" => typeof(CapabilitiesPage),
+        "voice" => typeof(VoiceSettingsPage),
         "permissions" => typeof(PermissionsPage),
         "activity" => typeof(ActivityPage),
         "settings" => typeof(SettingsPage),

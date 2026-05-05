@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OpenClawTray.Pages.VoiceSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Padding="24" Spacing="16" HorizontalAlignment="Stretch" MaxWidth="600">
+
+            <TextBlock Text="🎙️ Voice &amp; Audio" Style="{StaticResource TitleTextBlockStyle}"/>
+            <TextBlock Text="Configure speech-to-text and voice interaction settings. All speech processing runs locally on your device."
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+            <!-- Enable STT -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Speech-to-Text" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="Enable voice input via microphone. Requires a Whisper model download."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <ToggleSwitch x:Name="SttEnabledToggle" Toggled="OnSttToggled"
+                                  Header="Enable Voice Input"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Model Management -->
+            <Border x:Name="ModelCard"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Speech Model" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+
+                    <ComboBox x:Name="ModelCombo" Header="Model Size"
+                              SelectionChanged="OnModelChanged" Width="200">
+                        <ComboBoxItem Content="Tiny (~75 MB) — Fast, basic accuracy" Tag="tiny"/>
+                        <ComboBoxItem Content="Base (~142 MB) — Good balance" Tag="base"/>
+                        <ComboBoxItem Content="Small (~466 MB) — High accuracy" Tag="small"/>
+                    </ComboBox>
+
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="DownloadButton" Click="OnDownloadClick"
+                                Style="{StaticResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE896;" FontSize="14"/>
+                                <TextBlock x:Name="DownloadButtonText" Text="Download Model"/>
+                            </StackPanel>
+                        </Button>
+                        <TextBlock x:Name="ModelStatusText" VerticalAlignment="Center"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+
+                    <ProgressBar x:Name="DownloadProgress" Visibility="Collapsed"
+                                 Minimum="0" Maximum="100"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Language -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Language" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <ComboBox x:Name="LanguageCombo" Header="STT Language"
+                              SelectionChanged="OnLanguageChanged" Width="200">
+                        <ComboBoxItem Content="Auto-detect" Tag="auto"/>
+                        <ComboBoxItem Content="English" Tag="en"/>
+                        <ComboBoxItem Content="Spanish" Tag="es"/>
+                        <ComboBoxItem Content="French" Tag="fr"/>
+                        <ComboBoxItem Content="German" Tag="de"/>
+                        <ComboBoxItem Content="Japanese" Tag="ja"/>
+                        <ComboBoxItem Content="Chinese" Tag="zh"/>
+                        <ComboBoxItem Content="Korean" Tag="ko"/>
+                        <ComboBoxItem Content="Portuguese" Tag="pt"/>
+                        <ComboBoxItem Content="Italian" Tag="it"/>
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Voice Chat Settings -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Voice Chat" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+
+                    <Slider x:Name="SilenceSlider" Header="Silence timeout (seconds)"
+                            Minimum="0.5" Maximum="5" StepFrequency="0.5"
+                            ValueChanged="OnSilenceChanged" Width="250"/>
+
+                    <ToggleSwitch x:Name="TtsResponseToggle" Toggled="OnTtsResponseToggled"
+                                  Header="Read responses aloud"/>
+
+                    <ToggleSwitch x:Name="AudioFeedbackToggle" Toggled="OnAudioFeedbackToggled"
+                                  Header="Audio feedback sounds"/>
+                </StackPanel>
+            </Border>
+
+            <!-- TTS Voice Selection -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="🔊 Molty's Voice" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="Choose the voice used when reading responses aloud."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+
+                    <ComboBox x:Name="TtsProviderCombo" Header="Provider"
+                              SelectionChanged="OnTtsProviderChanged" Width="250">
+                        <ComboBoxItem Content="Windows (built-in neural voices)" Tag="windows"/>
+                        <ComboBoxItem Content="ElevenLabs (AI voices, requires API key)" Tag="elevenlabs"/>
+                    </ComboBox>
+
+                    <!-- Windows voice picker -->
+                    <StackPanel x:Name="WindowsVoicePanel" Spacing="8">
+                        <ComboBox x:Name="WindowsVoiceCombo" Header="Voice"
+                                  SelectionChanged="OnWindowsVoiceChanged" Width="300"/>
+                        <Button x:Name="PreviewVoiceButton" Click="OnPreviewVoiceClick"
+                                Content="▶ Preview Voice" Width="140"/>
+                    </StackPanel>
+
+                    <!-- ElevenLabs settings -->
+                    <StackPanel x:Name="ElevenLabsPanel" Spacing="8" Visibility="Collapsed">
+                        <PasswordBox x:Name="ElevenLabsApiKeyBox" Header="API Key"
+                                     PasswordChanged="OnElevenLabsKeyChanged" Width="300"/>
+                        <TextBox x:Name="ElevenLabsVoiceIdBox" Header="Voice ID"
+                                 TextChanged="OnElevenLabsVoiceIdChanged" Width="300"
+                                 PlaceholderText="e.g. 21m00Tcm4TlvDq8ikWAM"/>
+                        <TextBox x:Name="ElevenLabsModelBox" Header="Model (optional)"
+                                 TextChanged="OnElevenLabsModelChanged" Width="300"
+                                 PlaceholderText="e.g. eleven_turbo_v2"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Privacy notice -->
+            <Border Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                    CornerRadius="8" Padding="12">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE8D7;" FontSize="16" Foreground="{ThemeResource SystemFillColorCautionBrush}"/>
+                    <TextBlock Text="All speech processing runs entirely on your device. No audio data is sent to any cloud service."
+                               Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
