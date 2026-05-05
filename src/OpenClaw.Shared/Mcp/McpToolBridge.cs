@@ -236,9 +236,15 @@ public class McpToolBridge
         ["camera.clip"] =
             "Record a short clip from a camera. Args: deviceId (string, optional), durationMs (int, required, max 60000), format ('mp4'|'webm', default 'mp4'), maxWidth (int, default 1280). Returns { format, durationMs, base64 }.",
 
-        // stt.* — bounded microphone capture → text. Default-off privacy-sensitive.
+        // stt.* — microphone capture → text. Default-off privacy-sensitive.
+        // Two engines coexist (Whisper.net local, WinRT SpeechRecognizer);
+        // the user picks the preferred engine in tray Settings.
         ["stt.transcribe"] =
-            "Capture audio from the default microphone for a bounded duration and return the transcribed text. Args: maxDurationMs (int, required, > 0, max 30000), language (string, optional BCP-47 tag like 'en-US' — falls back to the configured SttLanguage setting). Uses Windows.Media.SpeechRecognition (local recognizer; OS may use online services for some configurations). Returns { transcribed, text, durationMs, language }. Requires NodeSttEnabled in tray Settings; when enabled, exposed to both gateway callers (subject to the gateway allowlist) and local MCP clients (subject to the MCP bearer token).",
+            "Capture microphone audio for a bounded duration and return the transcribed text. Args: maxDurationMs (int, required, > 0, max 30000), language (string, optional BCP-47 tag like 'en-US' or 'auto' — falls back to the configured SttLanguage setting). Returns { transcribed, text, durationMs, language, engineEffective ('whisper'|'winrt'), engineFallbackReason (null on the happy path) }. Requires NodeSttEnabled in tray Settings.",
+        ["stt.listen"] =
+            "Capture microphone audio with voice-activity detection and return when the user stops speaking, or after timeoutMs. Args: timeoutMs (int, optional, default 30000, range 1000..120000), language (string, optional BCP-47 tag or 'auto', default 'auto'). Returns { text, language, durationMs, segments[{ text, startMs, endMs }], engineEffective ('whisper'|'winrt'), engineFallbackReason }. Use this for conversational 'listen until I stop' prompts; use stt.transcribe for fixed-window prompts. Requires NodeSttEnabled in tray Settings.",
+        ["stt.status"] =
+            "Report STT engine readiness. No args. Returns { preferredEngine, effectiveEngine, whisper: { readiness ('ready'|'initializing'|'model-downloading'|'unavailable'), modelDownloadProgress (0..1 or null), isListenWithVadSupported, isBoundedTranscribeSupported }, winrt: { readiness, isListenWithVadSupported, isBoundedTranscribeSupported } }. Carries no PII (no transcript history, no language history, no device IDs, no model paths).",
 
         // tts.*
         ["tts.speak"] =

@@ -122,7 +122,12 @@ public sealed partial class CapabilitiesPage : Page
         }
         else
         {
-            SttEngineHint.Text = "Using Windows built-in speech recognition. No model download required.";
+            // Privacy: WinRT SpeechRecognizer honors the OS "Online speech
+            // recognition" toggle (Settings → Privacy → Speech). When that
+            // toggle is on, Windows may upload audio to Microsoft cloud
+            // services. Whisper is fully local; this hint surfaces the
+            // trade-off so the user can make an informed choice.
+            SttEngineHint.Text = "Using Windows built-in speech recognition. Note: Windows may upload audio to Microsoft if Online speech recognition is enabled in Windows Settings → Privacy → Speech. Use Whisper for fully local processing.";
         }
     }
 

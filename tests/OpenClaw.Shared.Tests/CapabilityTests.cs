@@ -2712,7 +2712,32 @@ public class TtsCapabilityTests
         });
 
         Assert.False(res.Ok);
-        Assert.Contains("Audio device unavailable", res.Error);
+        // Privacy: response surfaces a fixed sanitized error; the underlying
+        // exception text (which can include device names, ElevenLabs key
+        // fragments from 401 messages, etc.) stays in the local log only.
+        Assert.Equal("Speak failed", res.Error);
+    }
+
+    [Fact]
+    public async Task Speak_HandlerException_DoesNotLeakExceptionMessageIntoError()
+    {
+        // Privacy regression: a 401 from ElevenLabs containing a key prefix
+        // must not bleed into the response error path (and from there into
+        // recent activity / support bundles).
+        var cap = new TtsCapability(NullLogger.Instance);
+        const string sensitive = "ElevenLabs 401: invalid key sk-secret-prefix-do-not-leak";
+        cap.SpeakRequested += (_, _) => throw new InvalidOperationException(sensitive);
+
+        var res = await cap.ExecuteAsync(new NodeInvokeRequest
+        {
+            Id = "tts-priv",
+            Command = "tts.speak",
+            Args = Parse("""{"text":"hello"}""")
+        });
+
+        Assert.False(res.Ok);
+        Assert.DoesNotContain(sensitive, res.Error);
+        Assert.DoesNotContain("sk-secret-prefix-do-not-leak", res.Error);
     }
 
     [Fact]

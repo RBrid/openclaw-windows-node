@@ -81,8 +81,14 @@ public sealed class TtsCapability : NodeCapabilityBase
         }
         catch (Exception ex)
         {
+            // Privacy: never echo raw exception text into the response. The
+            // exception flows through the failed-invoke path and may be
+            // persisted to recent activity / support bundles. ElevenLabs
+            // error messages can contain key prefixes; OS speech errors
+            // can contain device names. Full detail stays in the local
+            // log only. (Same pattern as SttCapability.)
             Logger.Error("TTS speak failed", ex);
-            return Error($"Speak failed: {ex.Message}");
+            return Error("Speak failed");
         }
     }
 

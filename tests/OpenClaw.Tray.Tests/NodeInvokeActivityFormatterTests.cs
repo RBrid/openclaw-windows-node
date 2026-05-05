@@ -117,7 +117,8 @@ public sealed class NodeInvokeActivityFormatterTests : IDisposable
     [InlineData("system.run", "exec")]
     [InlineData("system.run.shell", "exec")]
     [InlineData("device.status", "metadata")]
-    [InlineData("tts.speak", "metadata")] // TTS speaks audio out, not in — not classified privacy-sensitive
+    [InlineData("tts.speak", "privacy-sensitive")] // TTS errors can leak ElevenLabs key fragments / device names
+    [InlineData("tts.future-command", "privacy-sensitive")] // any future tts.* defaults privacy-sensitive
     [InlineData("", "metadata")]
     public void GetPrivacyClass_KnownCommands(string command, string expected)
     {

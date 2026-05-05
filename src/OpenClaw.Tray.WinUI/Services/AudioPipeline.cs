@@ -116,6 +116,8 @@ public sealed class AudioPipeline : IAsyncDisposable
             _logger.Error("Microphone access denied", ex);
             SetState(AudioPipelineState.Error);
             DiagnosticMessage?.Invoke("⚠️ Microphone access denied — check Windows Settings → Privacy → Microphone");
+            // Release the partially-initialised capture device.
+            CleanupCapture();
             throw new InvalidOperationException(
                 "Microphone access denied. Open Windows Settings → Privacy & Security → Microphone and enable 'Let desktop apps access your microphone'.",
                 ex);
@@ -125,6 +127,9 @@ public sealed class AudioPipeline : IAsyncDisposable
             _logger.Error("Failed to start audio capture", ex);
             SetState(AudioPipelineState.Error);
             DiagnosticMessage?.Invoke($"⚠️ Mic error: {ex.Message}");
+            // Release the partially-initialised capture device and CTS so
+            // the mic LED doesn't stay on after a failed start.
+            CleanupCapture();
             throw;
         }
     }
@@ -452,14 +457,48 @@ public sealed class AudioPipeline : IAsyncDisposable
     {
         if (_capture != null)
         {
-            _capture.DataAvailable -= OnDataAvailable;
-            _capture.RecordingStopped -= OnRecordingStopped;
-            _capture.Dispose();
-            _capture = null;
+            try
+            {
+                _capture.DataAvailable -= OnDataAvailable;
+                _capture.RecordingStopped -= OnRecordingStopped;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Error detaching capture event handlers", ex);
+            }
+
+            try
+            {
+                _capture.Dispose();
+            }
+            catch (Exception ex)
+            {
+                // NAudio's WasapiCapture.Dispose may throw on a stuck COM
+                // object. Log but never propagate — this method is called
+                // from finally-blocks and re-throwing would mask the original
+                // failure AND leave the mic device held by the OS until
+                // process exit.
+                _logger.Error("Error disposing audio capture", ex);
+            }
+            finally
+            {
+                _capture = null;
+            }
         }
 
-        _cts?.Dispose();
-        _cts = null;
+        try
+        {
+            _cts?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Error disposing pipeline cancellation source", ex);
+        }
+        finally
+        {
+            _cts = null;
+        }
+
         _resampleBuffer.Clear();
         _speechBuffer.Clear();
     }

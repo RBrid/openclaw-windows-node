@@ -21,18 +21,17 @@ internal static class NodeInvokeActivityFormatter
     public const string Exec = "exec";
     public const string Metadata = "metadata";
 
+    // Also classify tts.* as privacy-sensitive: failed TTS calls can
+    // surface ElevenLabs API key fragments (in 401 messages) or audio-stack
+    // errors. Keeping the namespace under the same scrubbing rule as stt.*
+    // means recent-activity / support-bundle entries record only the
+    // privacy class + duration + sanitized "error" sentinel.
     public static string GetPrivacyClass(string command)
     {
         if (string.IsNullOrEmpty(command)) return Metadata;
 
-        // Microphone capture (stt.listen / stt.transcribe) and the metadata
-        // probe stt.status all share the privacy-sensitive class so the
-        // activity-stream formatter scrubs error text uniformly. stt.status
-        // doesn't capture audio itself, but it can still surface engine
-        // internals (model paths, error reasons) that should not land in
-        // support bundles. Treating the whole namespace the same way avoids
-        // accidental leaks if we add new stt.* commands later.
-        if (command.StartsWith("stt.", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("stt.", StringComparison.OrdinalIgnoreCase) ||
+            command.StartsWith("tts.", StringComparison.OrdinalIgnoreCase))
         {
             return PrivacySensitive;
         }

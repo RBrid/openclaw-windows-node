@@ -60,6 +60,11 @@ public sealed class NodeService : IDisposable
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTimeOffset> _navigationDenyCooldown =
         new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan NavigationDenyCooldownDuration = TimeSpan.FromSeconds(30);
+
+    // STT: rate-limit successive stt.listen invocations to prevent a
+    // compromised gateway from looping mic capture at the 120 s cap.
+    private static readonly TimeSpan SttListenMinInterval = TimeSpan.FromSeconds(1);
+    private DateTimeOffset _lastSttListenStartUtc = DateTimeOffset.MinValue;
     
     // Capabilities
     private SystemCapability? _systemCapability;
@@ -1437,6 +1442,22 @@ public sealed class NodeService : IDisposable
         SttListenArgs args,
         CancellationToken cancellationToken)
     {
+        // Defense-in-depth rate-limit: a compromised gateway could otherwise
+        // loop stt.listen at the max 120 s window indefinitely. We require
+        // a 1-second cooldown between successive starts, which is
+        // imperceptible to a real user but makes a hostile loop visibly
+        // throttled. Local UI-driven calls go through the same path (e.g.
+        // VoiceOverlayWindow); the cooldown is short enough that a
+        // human pressing the hotkey twice in a second still gets the
+        // second call immediately after the first completes.
+        var now = DateTimeOffset.UtcNow;
+        var sinceLast = now - _lastSttListenStartUtc;
+        if (sinceLast < SttListenMinInterval)
+        {
+            throw new InvalidOperationException("Listen rate limit");
+        }
+        _lastSttListenStartUtc = now;
+
         var pick = SttEngineSelector.PickEngine(
             _settings?.SttEngine,
             whisperReady: IsWhisperReady(),
