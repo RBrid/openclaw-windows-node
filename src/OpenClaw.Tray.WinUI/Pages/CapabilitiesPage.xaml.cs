@@ -43,6 +43,7 @@ public sealed partial class CapabilitiesPage : Page
             ("🖥️", "Screen Capture", settings.NodeScreenEnabled, v => settings.NodeScreenEnabled = v),
             ("📍", "Location", settings.NodeLocationEnabled, v => settings.NodeLocationEnabled = v),
             ("🔊", "Text-to-Speech", settings.NodeTtsEnabled, v => settings.NodeTtsEnabled = v),
+            ("🎙️", "Speech-to-Text", settings.NodeSttEnabled, v => settings.NodeSttEnabled = v),
         };
 
         var items = new List<UIElement>();
