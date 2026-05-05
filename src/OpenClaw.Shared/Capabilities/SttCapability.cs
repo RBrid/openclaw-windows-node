@@ -64,8 +64,10 @@ public sealed class SttCapability : NodeCapabilityBase
     /// <summary>
     /// Trim and BCP-47-validate a single tag. Returns the trimmed tag on
     /// success or null if the input is not a recognizable language tag.
+    /// Public so that UI surfaces can validate user input against the same
+    /// rule the capability applies on the wire.
     /// </summary>
-    private static string? NormalizeLanguageTag(string tag)
+    public static string? NormalizeLanguageTag(string tag)
     {
         var trimmed = tag.Trim();
         return BcpTagRegex.IsMatch(trimmed) ? trimmed : null;
