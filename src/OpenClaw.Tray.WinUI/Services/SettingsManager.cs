@@ -65,18 +65,24 @@ public class SettingsManager
     public bool NodeCameraEnabled { get; set; } = true;
     public bool NodeLocationEnabled { get; set; } = true;
     public bool NodeBrowserProxyEnabled { get; set; } = true;
+    public bool NodeSttEnabled { get; set; } = false;
+    /// <summary>Preferred STT engine: "whisper" (default, local ML) or "winrt".</summary>
+    public string SttEngine { get; set; } = "whisper";
+    /// <summary>STT language: "auto" for Whisper auto-detect, or a BCP-47 tag like "en-US".</summary>
+    public string SttLanguage { get; set; } = "auto";
+    /// <summary>Whisper model size: "tiny", "base", or "small".</summary>
+    public string SttModelName { get; set; } = "base";
+    /// <summary>Seconds of silence before auto-submit in voice chat mode.</summary>
+    public float SttSilenceTimeout { get; set; } = 1.5f;
+    /// <summary>Enable TTS playback of responses during voice sessions.</summary>
+    public bool VoiceTtsEnabled { get; set; } = true;
+    /// <summary>Play audio feedback chimes on listen start/stop.</summary>
+    public bool VoiceAudioFeedback { get; set; } = true;
     public bool NodeTtsEnabled { get; set; } = false;
     public string TtsProvider { get; set; } = "windows";
     public string TtsElevenLabsApiKey { get; set; } = "";
     public string TtsElevenLabsModel { get; set; } = "";
     public string TtsElevenLabsVoiceId { get; set; } = "";
-    // Voice / STT
-    public bool NodeSttEnabled { get; set; } = false;
-    public string SttModelName { get; set; } = "base";
-    public string SttLanguage { get; set; } = "auto";
-    public float SttSilenceTimeout { get; set; } = 1.5f;
-    public bool VoiceTtsEnabled { get; set; } = true;
-    public bool VoiceAudioFeedback { get; set; } = true;
     // Local MCP HTTP server (independent of EnableNodeMode)
     public bool EnableMcpServer { get; set; } = false;
     /// <summary>
@@ -149,17 +155,18 @@ public class SettingsManager
                     NodeCameraEnabled = loaded.NodeCameraEnabled;
                     NodeLocationEnabled = loaded.NodeLocationEnabled;
                     NodeBrowserProxyEnabled = loaded.NodeBrowserProxyEnabled;
+                    NodeSttEnabled = loaded.NodeSttEnabled;
+                    SttEngine = string.IsNullOrWhiteSpace(loaded.SttEngine) ? SttEngine : loaded.SttEngine;
+                    SttLanguage = string.IsNullOrWhiteSpace(loaded.SttLanguage) ? SttLanguage : loaded.SttLanguage;
+                    SttModelName = string.IsNullOrWhiteSpace(loaded.SttModelName) ? SttModelName : loaded.SttModelName;
+                    SttSilenceTimeout = loaded.SttSilenceTimeout > 0 ? loaded.SttSilenceTimeout : SttSilenceTimeout;
+                    VoiceTtsEnabled = loaded.VoiceTtsEnabled;
+                    VoiceAudioFeedback = loaded.VoiceAudioFeedback;
                     NodeTtsEnabled = loaded.NodeTtsEnabled;
                     TtsProvider = string.IsNullOrWhiteSpace(loaded.TtsProvider) ? TtsProvider : loaded.TtsProvider;
                     TtsElevenLabsApiKey = UnprotectSettingSecret(loaded.TtsElevenLabsApiKey) ?? TtsElevenLabsApiKey;
                     TtsElevenLabsModel = loaded.TtsElevenLabsModel ?? TtsElevenLabsModel;
                     TtsElevenLabsVoiceId = loaded.TtsElevenLabsVoiceId ?? TtsElevenLabsVoiceId;
-                    NodeSttEnabled = loaded.NodeSttEnabled;
-                    SttModelName = string.IsNullOrWhiteSpace(loaded.SttModelName) ? SttModelName : loaded.SttModelName;
-                    SttLanguage = string.IsNullOrWhiteSpace(loaded.SttLanguage) ? SttLanguage : loaded.SttLanguage;
-                    SttSilenceTimeout = loaded.SttSilenceTimeout > 0 ? loaded.SttSilenceTimeout : SttSilenceTimeout;
-                    VoiceTtsEnabled = loaded.VoiceTtsEnabled;
-                    VoiceAudioFeedback = loaded.VoiceAudioFeedback;
                     EnableMcpServer = loaded.EnableMcpServer;
                     A2UIImageHosts = loaded.A2UIImageHosts ?? new List<string>();
                     // Legacy McpOnlyMode migration:
@@ -229,17 +236,18 @@ public class SettingsManager
                 NodeCameraEnabled = NodeCameraEnabled,
                 NodeLocationEnabled = NodeLocationEnabled,
                 NodeBrowserProxyEnabled = NodeBrowserProxyEnabled,
+                NodeSttEnabled = NodeSttEnabled,
+                SttEngine = SttEngine,
+                SttLanguage = SttLanguage,
+                SttModelName = SttModelName,
+                SttSilenceTimeout = SttSilenceTimeout,
+                VoiceTtsEnabled = VoiceTtsEnabled,
+                VoiceAudioFeedback = VoiceAudioFeedback,
                 NodeTtsEnabled = NodeTtsEnabled,
                 TtsProvider = TtsProvider,
                 TtsElevenLabsApiKey = ProtectSettingSecret(TtsElevenLabsApiKey),
                 TtsElevenLabsModel = string.IsNullOrWhiteSpace(TtsElevenLabsModel) ? null : TtsElevenLabsModel,
                 TtsElevenLabsVoiceId = string.IsNullOrWhiteSpace(TtsElevenLabsVoiceId) ? null : TtsElevenLabsVoiceId,
-                NodeSttEnabled = NodeSttEnabled,
-                SttModelName = SttModelName,
-                SttLanguage = SttLanguage,
-                SttSilenceTimeout = SttSilenceTimeout,
-                VoiceTtsEnabled = VoiceTtsEnabled,
-                VoiceAudioFeedback = VoiceAudioFeedback,
                 EnableMcpServer = EnableMcpServer,
                 A2UIImageHosts = A2UIImageHosts.Count == 0 ? null : new List<string>(A2UIImageHosts),
                 // McpOnlyMode is legacy — never written; remains null in serialized output.

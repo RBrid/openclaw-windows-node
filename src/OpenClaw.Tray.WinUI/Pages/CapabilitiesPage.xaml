@@ -25,6 +25,84 @@
                 </ItemsRepeater.Layout>
             </ItemsRepeater>
 
+            <!-- Speech-to-Text settings (visible only when STT is enabled) -->
+            <Border x:Name="SttCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,8,0,0"
+                    Visibility="Collapsed">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="🎤 Speech-to-Text" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="Recognizes microphone audio. Whisper runs locally on this PC; Windows built-in is the no-download alternative used while Whisper isn't ready."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <ComboBox x:Name="SttEngineComboBox" Header="Engine"
+                              SelectionChanged="OnSttEngineSelectionChanged">
+                        <ComboBoxItem Content="Whisper (local ML, recommended)" Tag="whisper"/>
+                        <ComboBoxItem Content="Windows built-in (no download required)" Tag="winrt"/>
+                    </ComboBox>
+                    <TextBlock x:Name="SttEngineHint"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Language" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="1" x:Name="SttLanguageTextBox"
+                                 PlaceholderText="auto"
+                                 LostFocus="OnSttLanguageCommitted"
+                                 KeyDown="OnSttLanguageKeyDown"/>
+                    </Grid>
+                    <TextBlock Text="BCP-47 tag (e.g. en-US, fr-FR, ja-JP) or 'auto' to let Whisper detect the language."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <HyperlinkButton x:Name="SttMoreSettingsLink"
+                                     Content="More voice settings…"
+                                     Click="OnSttMoreSettingsClick"
+                                     Padding="0"/>
+                    <TextBlock x:Name="SttStatusText"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Text-to-Speech settings (visible only when TTS is enabled) -->
+            <Border x:Name="TtsCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,8,0,0"
+                    Visibility="Collapsed">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="🔊 Text-to-Speech" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="Default provider for tts.speak. Per-call provider/voiceId/model overrides this default."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <ComboBox x:Name="TtsProviderComboBox" Header="Provider"
+                              SelectionChanged="OnTtsProviderSelectionChanged">
+                        <ComboBoxItem Content="Windows built-in speech" Tag="windows"/>
+                        <ComboBoxItem Content="ElevenLabs" Tag="elevenlabs"/>
+                    </ComboBox>
+                    <StackPanel x:Name="TtsElevenLabsPanel" Spacing="6" Visibility="Collapsed">
+                        <PasswordBox x:Name="TtsElevenLabsApiKeyBox"
+                                     Header="ElevenLabs API key"
+                                     LostFocus="OnTtsElevenLabsCommitted"/>
+                        <TextBox x:Name="TtsElevenLabsVoiceIdBox"
+                                 Header="ElevenLabs voice ID"
+                                 LostFocus="OnTtsElevenLabsCommitted"/>
+                        <TextBox x:Name="TtsElevenLabsModelBox"
+                                 Header="ElevenLabs model"
+                                 PlaceholderText="eleven_multilingual_v2"
+                                 LostFocus="OnTtsElevenLabsCommitted"/>
+                        <TextBlock Text="API key is encrypted at rest with Windows DPAPI. Leave blank to keep the previously saved value when you change other fields."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <TextBlock x:Name="TtsStatusText"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+
             <!-- MCP Server -->
             <Border x:Name="McpCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"

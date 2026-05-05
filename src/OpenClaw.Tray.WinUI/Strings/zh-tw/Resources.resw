@@ -901,7 +901,7 @@
     <value>啟用本機 MCP 伺服器</value>
   </data>
   <data name="SettingsMcpDescription.Text" xml:space="preserve">
-    <value>向本機 MCP 用戶端（Claude Desktop、Cursor、Claude Code）公開相同的節點功能（系統、螢幕、攝影機、畫布）。</value>
+    <value>向本機 MCP 用戶端（Claude Desktop、Cursor、Claude Code）公開相同的節點功能（系統、螢幕、攝影機、麥克風、喇叭、畫布）。</value>
   </data>
   <data name="SettingsMcpEndpointLabel.Text" xml:space="preserve">
     <value>端點：</value>

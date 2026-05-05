@@ -901,7 +901,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
     <value>Lokale MCP-server inschakelen</value>
   </data>
   <data name="SettingsMcpDescription.Text" xml:space="preserve">
-    <value>Stelt dezelfde knooppuntmogelijkheden (systeem, scherm, camera, canvas) beschikbaar voor lokale MCP-clients (Claude Desktop, Cursor, Claude Code).</value>
+    <value>Stelt dezelfde knooppuntmogelijkheden (systeem, scherm, camera, microfoon, luidsprekers, canvas) beschikbaar voor lokale MCP-clients (Claude Desktop, Cursor, Claude Code).</value>
   </data>
   <data name="SettingsMcpEndpointLabel.Text" xml:space="preserve">
     <value>Eindpunt:</value>

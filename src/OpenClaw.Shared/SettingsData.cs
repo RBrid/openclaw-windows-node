@@ -34,6 +34,19 @@ public class SettingsData
     public bool NodeCameraEnabled { get; set; } = true;
     public bool NodeLocationEnabled { get; set; } = true;
     public bool NodeBrowserProxyEnabled { get; set; } = true;
+    public bool NodeSttEnabled { get; set; } = false;
+    /// <summary>Preferred STT engine: "whisper" (default, local ML) or "winrt".</summary>
+    public string SttEngine { get; set; } = "whisper";
+    /// <summary>STT language: "auto" for auto-detect (Whisper), or a BCP-47 tag like "en-US".</summary>
+    public string SttLanguage { get; set; } = "auto";
+    /// <summary>Whisper model name: "tiny", "base", or "small".</summary>
+    public string SttModelName { get; set; } = "base";
+    /// <summary>Seconds of silence before auto-submit in voice chat mode.</summary>
+    public float SttSilenceTimeout { get; set; } = 2.5f;
+    /// <summary>Enable TTS playback of responses during voice sessions.</summary>
+    public bool VoiceTtsEnabled { get; set; } = true;
+    /// <summary>Play audio feedback chimes on listen start/stop.</summary>
+    public bool VoiceAudioFeedback { get; set; } = true;
     public bool NodeTtsEnabled { get; set; } = false;
     public string TtsProvider { get; set; } = "windows";
     /// <summary>
@@ -64,18 +77,7 @@ public class SettingsData
     public bool PreferStructuredCategories { get; set; } = true;
     public List<UserNotificationRule>? UserRules { get; set; }
 
-    // ── Voice / STT settings ──
-    public bool NodeSttEnabled { get; set; } = false;
-    /// <summary>Whisper model name: "tiny", "base", or "small".</summary>
-    public string SttModelName { get; set; } = "base";
-    /// <summary>STT language code ("auto" for auto-detect, or ISO 639-1).</summary>
-    public string SttLanguage { get; set; } = "auto";
-    /// <summary>Seconds of silence before auto-submit in voice chat mode.</summary>
-    public float SttSilenceTimeout { get; set; } = 2.5f;
-    /// <summary>Enable TTS playback of responses during voice sessions.</summary>
-    public bool VoiceTtsEnabled { get; set; } = true;
-    /// <summary>Play audio feedback chimes on listen start/stop.</summary>
-    public bool VoiceAudioFeedback { get; set; } = true;
+    // ── (Voice / STT settings consolidated into the block above.) ──
 
     private static readonly JsonSerializerOptions s_options = new()
     {

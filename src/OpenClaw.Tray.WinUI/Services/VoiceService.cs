@@ -40,11 +40,31 @@ public sealed class VoiceService : IAsyncDisposable
     /// <summary>Current voice interaction mode.</summary>
     public VoiceMode CurrentMode => _currentMode;
 
-    /// <summary>Whether a Whisper model is loaded and ready.</summary>
+    /// <summary>Whether a Whisper model is loaded and ready to transcribe.</summary>
     public bool IsModelLoaded => _stt.IsModelLoaded;
 
     /// <summary>Whether the configured model has been downloaded.</summary>
     public bool IsModelDownloaded => _modelManager.IsModelDownloaded(_settings.SttModelName);
+
+    // ============================================================
+    // Engine adapter surface (consumed by NodeService's STT selector).
+    //
+    // Whisper is "ready" only when the model is both downloaded AND loaded
+    // into memory. Anything else falls back to the WinRT engine inside the
+    // selector — kept transparent at the SttCapability response surface.
+    // ============================================================
+
+    /// <summary>True when Whisper can serve a transcribe / listen call right now.</summary>
+    public bool IsWhisperReady => _stt.IsModelLoaded;
+
+    /// <summary>True while the Whisper model is actively downloading.</summary>
+    public bool IsWhisperDownloadingModel => _modelDownloadInProgress;
+
+    /// <summary>0.0..1.0 download progress when <see cref="IsWhisperDownloadingModel"/>; null otherwise.</summary>
+    public double? WhisperModelDownloadProgress => _modelDownloadInProgress ? _modelDownloadProgress : null;
+
+    private volatile bool _modelDownloadInProgress;
+    private volatile float _modelDownloadProgress;
 
     /// <summary>Fired when a speech segment is transcribed.</summary>
     public event Action<string>? TranscriptionReceived;
@@ -308,29 +328,43 @@ public sealed class VoiceService : IAsyncDisposable
         }
     }
 
-    /// <summary>Get current STT status for the stt.status command.</summary>
-    public Task<SttStatusResult> GetStatusAsync()
-    {
-        return Task.FromResult(new SttStatusResult
-        {
-            ModelLoaded = _stt.IsModelLoaded,
-            ModelName = _stt.IsModelLoaded ? _settings.SttModelName : null,
-            IsListening = _currentMode != VoiceMode.Inactive
-        });
-    }
+    // GetStatusAsync was previously tied to the old SttStatusResult shape
+    // (ModelLoaded / ModelName / IsListening). The unified status now lives
+    // in NodeService.OnSttStatusAsync, which probes both engines and reports
+    // per-engine readiness. VoiceService just exposes the raw signals
+    // (IsWhisperReady, IsWhisperDownloadingModel, WhisperModelDownloadProgress)
+    // that the selector consumes.
 
     /// <summary>
     /// Download the configured Whisper model with progress reporting.
+    /// Sets <see cref="IsWhisperDownloadingModel"/> for the duration so the
+    /// STT selector can fall back to WinRT while a download is in flight.
     /// </summary>
-    public Task DownloadModelAsync(
+    public async Task DownloadModelAsync(
         string? modelName = null,
         IProgress<(long downloaded, long total)>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        return _modelManager.DownloadModelAsync(
-            modelName ?? _settings.SttModelName,
-            progress,
-            cancellationToken);
+        var resolved = modelName ?? _settings.SttModelName;
+        _modelDownloadInProgress = true;
+        _modelDownloadProgress = 0f;
+        try
+        {
+            // Wrap caller's progress reporter so we also keep our internal
+            // 0..1 snapshot updated for the stt.status surface.
+            var wrapped = new Progress<(long downloaded, long total)>(p =>
+            {
+                if (p.total > 0)
+                    _modelDownloadProgress = (float)((double)p.downloaded / p.total);
+                progress?.Report(p);
+            });
+            await _modelManager.DownloadModelAsync(resolved, wrapped, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _modelDownloadInProgress = false;
+            _modelDownloadProgress = 0f;
+        }
     }
 
     /// <summary>Check if the specified model is downloaded.</summary>

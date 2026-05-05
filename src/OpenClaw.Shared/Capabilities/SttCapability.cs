@@ -1,37 +1,119 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace OpenClaw.Shared.Capabilities;
 
 /// <summary>
-/// Speech-to-text node capability. Allows the OpenClaw agent to
-/// trigger microphone listening and receive transcribed text.
+/// Speech-to-text node capability. Three commands:
+///
+/// * <see cref="TranscribeCommand"/> — bounded fixed-duration capture + transcription.
+///   Caller must specify <c>maxDurationMs</c> (capped at <see cref="MaxTranscribeDurationMs"/>).
+///   Useful for quick "give me 5 seconds of audio" prompts.
+///
+/// * <see cref="ListenCommand"/> — VAD-driven capture that returns when speech ends
+///   or after <c>timeoutMs</c> (default <see cref="DefaultListenTimeoutMs"/>, range
+///   <see cref="MinListenTimeoutMs"/>..<see cref="MaxListenTimeoutMs"/>).
+///   Useful for conversational "listen until I stop talking" prompts.
+///
+/// * <see cref="StatusCommand"/> — reports per-engine readiness (no PII).
+///
+/// The actual engines live in the tray (Whisper.net pipeline, WinRT
+/// <c>SpeechRecognizer</c> with desktop SAPI fallback). The tray-side handler is
+/// responsible for picking the engine based on <c>SettingsManager.SttEngine</c>
+/// and falling back transparently when the preferred engine is not ready
+/// (e.g., Whisper model still downloading → use WinRT for this call).
+///
+/// **Privacy invariants for the response surface:**
+/// - Validation errors never echo the caller-supplied language string.
+/// - Handler exceptions never propagate their <c>Message</c> into the response;
+///   full detail stays in the local logger only. This is critical because
+///   failed-invoke errors land in recent activity / support bundles.
+/// - <see cref="StatusCommand"/> response carries no PII (no transcript fragments,
+///   no language history, no device IDs, no model paths).
 /// </summary>
 public sealed class SttCapability : NodeCapabilityBase
 {
+    public const string TranscribeCommand = "stt.transcribe";
     public const string ListenCommand = "stt.listen";
     public const string StatusCommand = "stt.status";
 
-    private static readonly string[] _commands = [ListenCommand, StatusCommand];
+    public const int MaxTranscribeDurationMs = 30_000;
+    public const int MinListenTimeoutMs = 1_000;
+    public const int MaxListenTimeoutMs = 120_000;
+    public const int DefaultListenTimeoutMs = 30_000;
+
+    public const string DefaultLanguage = "en-US";
+    public const string AutoLanguage = "auto";
+
+    // Engine identifiers — the tray-side selector reads
+    // SettingsManager.SttEngine and dispatches accordingly.
+    public const string EngineWhisper = "whisper";
+    public const string EngineWinRt = "winrt";
+    public const string DefaultEngine = EngineWhisper;
+
+    private static readonly string[] _commands = [TranscribeCommand, ListenCommand, StatusCommand];
+
+    // Conservative BCP-47 check: 2-3 letter language, optional script
+    // (4 letter), optional region (2 letter or 3 digit), each separated
+    // by a hyphen. Rejects whitespace and punctuation that would otherwise
+    // trip Windows.Globalization.Language ctor. The literal "auto"
+    // sentinel is accepted in addition (Whisper supports auto-detect).
+    private static readonly Regex BcpTagRegex = new(
+        "^[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?$",
+        RegexOptions.Compiled);
 
     public override string Category => "stt";
     public override IReadOnlyList<string> Commands => _commands;
 
     /// <summary>
-    /// Fired when the agent requests listening. The handler should start
-    /// the microphone, wait for speech + silence, transcribe, and return
-    /// the text result.
+    /// Tray-side handler for <see cref="TranscribeCommand"/>: bounded fixed-duration
+    /// capture + transcription.
+    /// </summary>
+    public event Func<SttTranscribeArgs, CancellationToken, Task<SttTranscribeResult>>? TranscribeRequested;
+
+    /// <summary>
+    /// Tray-side handler for <see cref="ListenCommand"/>: VAD-driven capture that
+    /// returns on end-of-speech or after <c>timeoutMs</c>.
     /// </summary>
     public event Func<SttListenArgs, CancellationToken, Task<SttListenResult>>? ListenRequested;
 
     /// <summary>
-    /// Fired when the agent queries STT status (model loaded, etc.).
+    /// Tray-side handler for <see cref="StatusCommand"/>: returns per-engine readiness.
     /// </summary>
-    public event Func<Task<SttStatusResult>>? StatusRequested;
+    public event Func<CancellationToken, Task<SttStatusResult>>? StatusRequested;
 
     public SttCapability(IOpenClawLogger logger) : base(logger) { }
+
+    /// <summary>
+    /// Trim and validate a single language tag. Returns the trimmed tag on
+    /// success, the literal <see cref="AutoLanguage"/> sentinel on a case-insensitive
+    /// "auto" input, or <c>null</c> if the input is neither.
+    /// Public so UI surfaces can validate against the same rule the wire applies.
+    /// </summary>
+    public static string? NormalizeLanguageTag(string tag)
+    {
+        var trimmed = tag.Trim();
+        if (string.Equals(trimmed, AutoLanguage, StringComparison.OrdinalIgnoreCase))
+            return AutoLanguage;
+        return BcpTagRegex.IsMatch(trimmed) ? trimmed : null;
+    }
+
+    /// <summary>
+    /// Resolve the language to use for a recognition call: per-call argument
+    /// wins, then configured setting, then <see cref="DefaultLanguage"/>.
+    /// Returns <c>null</c> if the resolved string fails validation.
+    /// </summary>
+    public static string? ResolveLanguage(string? requested, string? configured)
+    {
+        var candidate = !string.IsNullOrWhiteSpace(requested)
+            ? requested
+            : (!string.IsNullOrWhiteSpace(configured) ? configured : DefaultLanguage);
+
+        return NormalizeLanguageTag(candidate!);
+    }
 
     public override Task<NodeInvokeResponse> ExecuteAsync(NodeInvokeRequest request)
         => ExecuteAsync(request, CancellationToken.None);
@@ -42,94 +124,215 @@ public sealed class SttCapability : NodeCapabilityBase
     {
         return request.Command switch
         {
-            ListenCommand => await HandleListenAsync(request, cancellationToken),
-            StatusCommand => await HandleStatusAsync(),
+            TranscribeCommand => await HandleTranscribeAsync(request, cancellationToken).ConfigureAwait(false),
+            ListenCommand     => await HandleListenAsync(request, cancellationToken).ConfigureAwait(false),
+            StatusCommand     => await HandleStatusAsync(cancellationToken).ConfigureAwait(false),
             _ => Error($"Unknown command: {request.Command}")
         };
+    }
+
+    private async Task<NodeInvokeResponse> HandleTranscribeAsync(
+        NodeInvokeRequest request,
+        CancellationToken cancellationToken)
+    {
+        // maxDurationMs is required and bounded server-side. We deliberately
+        // reject 0/negative rather than substituting a default — callers
+        // explicitly choose how much mic time they're spending.
+        var maxDurationMs = GetIntArg(request.Args, "maxDurationMs", 0);
+        if (maxDurationMs <= 0)
+            return Error("Missing required maxDurationMs");
+        if (maxDurationMs > MaxTranscribeDurationMs)
+            return Error($"maxDurationMs exceeds {MaxTranscribeDurationMs} ms");
+
+        var requestedLanguage = GetStringArg(request.Args, "language");
+        string? resolvedLanguage = null;
+        if (!string.IsNullOrWhiteSpace(requestedLanguage))
+        {
+            resolvedLanguage = NormalizeLanguageTag(requestedLanguage);
+            if (resolvedLanguage == null)
+                return Error("Invalid language tag");
+        }
+
+        if (TranscribeRequested == null)
+            return Error("STT transcribe not available");
+
+        var args = new SttTranscribeArgs
+        {
+            MaxDurationMs = maxDurationMs,
+            Language = resolvedLanguage  // null lets the tray fall back to its configured setting
+        };
+
+        Logger.Info($"stt.transcribe: maxDurationMs={args.MaxDurationMs}, language={args.Language ?? "(default)"}");
+
+        try
+        {
+            var result = await TranscribeRequested(args, cancellationToken).ConfigureAwait(false);
+            return Success(new
+            {
+                transcribed = result.Transcribed,
+                text = result.Text,
+                durationMs = result.DurationMs,
+                language = result.Language,
+                engineEffective = result.EngineEffective,
+                engineFallbackReason = result.EngineFallbackReason
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return Error("Transcribe canceled");
+        }
+        catch (Exception ex)
+        {
+            // Privacy: never echo raw exception text into the response. The
+            // exception flows through the failed-invoke path and may be
+            // persisted to recent activity / support bundles. Full detail
+            // stays in the local log only.
+            Logger.Error("STT transcribe failed", ex);
+            return Error("Transcribe failed");
+        }
     }
 
     private async Task<NodeInvokeResponse> HandleListenAsync(
         NodeInvokeRequest request,
         CancellationToken cancellationToken)
     {
+        // timeoutMs is optional with a sane default; bounded both ways so
+        // a hostile caller can't pin the mic open for an hour.
+        var timeoutMs = GetIntArg(request.Args, "timeoutMs", DefaultListenTimeoutMs);
+        if (timeoutMs < MinListenTimeoutMs) timeoutMs = MinListenTimeoutMs;
+        if (timeoutMs > MaxListenTimeoutMs) timeoutMs = MaxListenTimeoutMs;
+
+        var requestedLanguage = GetStringArg(request.Args, "language");
+        string resolvedLanguage = AutoLanguage;
+        if (!string.IsNullOrWhiteSpace(requestedLanguage))
+        {
+            var normalized = NormalizeLanguageTag(requestedLanguage);
+            if (normalized == null)
+                return Error("Invalid language tag");
+            resolvedLanguage = normalized;
+        }
+
         if (ListenRequested == null)
             return Error("STT listen not available");
-
-        var timeoutMs = GetIntArg(request.Args, "timeoutMs", 30000);
-        if (timeoutMs < 1000) timeoutMs = 1000;
-        if (timeoutMs > 120000) timeoutMs = 120000;
-
-        var language = GetStringArg(request.Args, "language", "auto") ?? "auto";
 
         var args = new SttListenArgs
         {
             TimeoutMs = timeoutMs,
-            Language = language
+            Language = resolvedLanguage
         };
 
-        Logger.Info($"stt.listen: timeoutMs={timeoutMs}, language={language}");
+        Logger.Info($"stt.listen: timeoutMs={timeoutMs}, language={resolvedLanguage}");
 
         try
         {
-            var result = await ListenRequested(args, cancellationToken);
+            var result = await ListenRequested(args, cancellationToken).ConfigureAwait(false);
             return Success(new
             {
                 text = result.Text,
                 language = result.Language,
                 durationMs = result.DurationMs,
-                segments = result.Segments
+                segments = result.Segments,
+                engineEffective = result.EngineEffective,
+                engineFallbackReason = result.EngineFallbackReason
             });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return Error("Listen canceled");
         }
-        catch (TimeoutException)
-        {
-            return Error("No speech detected within timeout");
-        }
         catch (Exception ex)
         {
+            // Same privacy invariant as Transcribe.
             Logger.Error("STT listen failed", ex);
-            return Error($"Listen failed: {ex.Message}");
+            return Error("Listen failed");
         }
     }
 
-    private async Task<NodeInvokeResponse> HandleStatusAsync()
+    private async Task<NodeInvokeResponse> HandleStatusAsync(CancellationToken cancellationToken)
     {
         if (StatusRequested == null)
             return Error("STT status not available");
 
         try
         {
-            var result = await StatusRequested();
+            var result = await StatusRequested(cancellationToken).ConfigureAwait(false);
             return Success(new
             {
-                modelLoaded = result.ModelLoaded,
-                modelName = result.ModelName,
-                isListening = result.IsListening
+                preferredEngine = result.PreferredEngine,
+                effectiveEngine = result.EffectiveEngine,
+                whisper = new
+                {
+                    readiness = result.WhisperReadiness,
+                    modelDownloadProgress = result.WhisperModelDownloadProgress,
+                    isListenWithVadSupported = result.WhisperIsListenWithVadSupported,
+                    isBoundedTranscribeSupported = result.WhisperIsBoundedTranscribeSupported
+                },
+                winrt = new
+                {
+                    readiness = result.WinRtReadiness,
+                    isListenWithVadSupported = result.WinRtIsListenWithVadSupported,
+                    isBoundedTranscribeSupported = result.WinRtIsBoundedTranscribeSupported
+                }
             });
         }
         catch (Exception ex)
         {
+            // Status must not leak engine internals; carry only a fixed message.
             Logger.Error("STT status failed", ex);
-            return Error($"Status failed: {ex.Message}");
+            return Error("Status failed");
         }
     }
 }
 
+public sealed class SttTranscribeArgs
+{
+    public int MaxDurationMs { get; set; }
+    /// <summary>
+    /// BCP-47 tag (e.g., "en-US"), the literal "auto" sentinel, or null
+    /// to let the tray fall back to its configured <c>SttLanguage</c> setting.
+    /// </summary>
+    public string? Language { get; set; }
+}
+
+public sealed class SttTranscribeResult
+{
+    public bool Transcribed { get; set; }
+    public string Text { get; set; } = "";
+    public int DurationMs { get; set; }
+    public string Language { get; set; } = SttCapability.DefaultLanguage;
+
+    /// <summary>
+    /// Engine that actually served this call (e.g., "whisper", "winrt").
+    /// </summary>
+    public string EngineEffective { get; set; } = "";
+
+    /// <summary>
+    /// Non-null when the preferred engine could not serve the request and
+    /// the selector fell back to another (e.g. "whisper-model-not-ready").
+    /// Null on the happy path.
+    /// </summary>
+    public string? EngineFallbackReason { get; set; }
+}
+
 public sealed class SttListenArgs
 {
-    public int TimeoutMs { get; set; } = 30000;
-    public string Language { get; set; } = "auto";
+    public int TimeoutMs { get; set; }
+    /// <summary>
+    /// BCP-47 tag (e.g., "en-US"), or the literal "auto" sentinel
+    /// (default; lets Whisper auto-detect).
+    /// </summary>
+    public string Language { get; set; } = SttCapability.AutoLanguage;
 }
 
 public sealed class SttListenResult
 {
     public string Text { get; set; } = "";
-    public string? Language { get; set; }
+    public string Language { get; set; } = SttCapability.AutoLanguage;
     public int DurationMs { get; set; }
-    public List<SttSegment>? Segments { get; set; }
+    public IReadOnlyList<SttSegment> Segments { get; set; } = Array.Empty<SttSegment>();
+
+    public string EngineEffective { get; set; } = "";
+    public string? EngineFallbackReason { get; set; }
 }
 
 public sealed class SttSegment
@@ -141,7 +344,18 @@ public sealed class SttSegment
 
 public sealed class SttStatusResult
 {
-    public bool ModelLoaded { get; set; }
-    public string? ModelName { get; set; }
-    public bool IsListening { get; set; }
+    public string PreferredEngine { get; set; } = SttCapability.DefaultEngine;
+    public string EffectiveEngine { get; set; } = SttCapability.DefaultEngine;
+
+    /// <summary>One of "ready", "initializing", "model-downloading", "unavailable".</summary>
+    public string WhisperReadiness { get; set; } = "unavailable";
+    /// <summary>0..1 model download progress when WhisperReadiness == "model-downloading"; null otherwise.</summary>
+    public double? WhisperModelDownloadProgress { get; set; }
+    public bool WhisperIsListenWithVadSupported { get; set; }
+    public bool WhisperIsBoundedTranscribeSupported { get; set; }
+
+    /// <summary>One of "ready", "initializing", "unavailable".</summary>
+    public string WinRtReadiness { get; set; } = "unavailable";
+    public bool WinRtIsListenWithVadSupported { get; set; }
+    public bool WinRtIsBoundedTranscribeSupported { get; set; }
 }

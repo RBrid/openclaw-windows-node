@@ -37,6 +37,8 @@ public class SettingsRoundTripTests
             NodeCameraEnabled = false,
             NodeLocationEnabled = true,
             NodeBrowserProxyEnabled = false,
+            NodeSttEnabled = true,
+            SttLanguage = "en-GB",
             NodeTtsEnabled = true,
             TtsProvider = "elevenlabs",
             TtsElevenLabsApiKey = "elevenlabs-key",
@@ -82,6 +84,8 @@ public class SettingsRoundTripTests
         Assert.Equal(original.NodeCameraEnabled, restored.NodeCameraEnabled);
         Assert.Equal(original.NodeLocationEnabled, restored.NodeLocationEnabled);
         Assert.Equal(original.NodeBrowserProxyEnabled, restored.NodeBrowserProxyEnabled);
+        Assert.Equal(original.NodeSttEnabled, restored.NodeSttEnabled);
+        Assert.Equal(original.SttLanguage, restored.SttLanguage);
         Assert.Equal(original.NodeTtsEnabled, restored.NodeTtsEnabled);
         Assert.Equal(original.TtsProvider, restored.TtsProvider);
         Assert.Equal(original.TtsElevenLabsApiKey, restored.TtsElevenLabsApiKey);
@@ -144,6 +148,8 @@ public class SettingsRoundTripTests
         Assert.True(settings.NodeCameraEnabled);
         Assert.True(settings.NodeLocationEnabled);
         Assert.True(settings.NodeBrowserProxyEnabled);
+        Assert.False(settings.NodeSttEnabled);
+        Assert.Equal("auto", settings.SttLanguage);
         Assert.False(settings.NodeTtsEnabled);
         Assert.Equal("windows", settings.TtsProvider);
         Assert.Null(settings.TtsElevenLabsApiKey);
@@ -198,6 +204,8 @@ public class SettingsRoundTripTests
         Assert.True(settings.NodeCameraEnabled);
         Assert.True(settings.NodeLocationEnabled);
         Assert.True(settings.NodeBrowserProxyEnabled);
+        Assert.False(settings.NodeSttEnabled);
+        Assert.Equal("auto", settings.SttLanguage);
         Assert.False(settings.NodeTtsEnabled);
         Assert.Equal("windows", settings.TtsProvider);
         Assert.Null(settings.TtsElevenLabsApiKey);

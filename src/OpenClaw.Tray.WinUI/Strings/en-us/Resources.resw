@@ -960,7 +960,7 @@ On your gateway host (Mac/Linux), run:
     <value>Enable Local MCP Server</value>
   </data>
   <data name="SettingsMcpDescription.Text" xml:space="preserve">
-    <value>Exposes the same node capabilities (system, screen, camera, canvas) to local MCP clients (Claude Desktop, Cursor, Claude Code).</value>
+    <value>Exposes the same node capabilities (system, screen, camera, microphone, speakers, canvas) to local MCP clients (Claude Desktop, Cursor, Claude Code).</value>
   </data>
   <data name="SettingsMcpEndpointLabel.Text" xml:space="preserve">
     <value>Endpoint:</value>

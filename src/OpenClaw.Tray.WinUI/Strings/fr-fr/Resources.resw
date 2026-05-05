@@ -901,7 +901,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
     <value>Activer le serveur MCP local</value>
   </data>
   <data name="SettingsMcpDescription.Text" xml:space="preserve">
-    <value>Expose les mêmes capacités du nœud (système, écran, caméra, canvas) aux clients MCP locaux (Claude Desktop, Cursor, Claude Code).</value>
+    <value>Expose les mêmes capacités du nœud (système, écran, caméra, microphone, haut-parleurs, canvas) aux clients MCP locaux (Claude Desktop, Cursor, Claude Code).</value>
   </data>
   <data name="SettingsMcpEndpointLabel.Text" xml:space="preserve">
     <value>Point de terminaison :</value>
