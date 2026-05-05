@@ -513,7 +513,6 @@ public partial class App : Application
             // Rebuild menu content
             _trayMenuWindow!.ClearItems();
             BuildTrayMenuPopup(_trayMenuWindow);
-            _trayMenuWindow.SizeToContent();
             _trayMenuWindow.ShowAtCursor();
         }
         catch (Exception ex)
