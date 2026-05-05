@@ -1367,15 +1367,12 @@ public sealed class NodeService : IDisposable
         SttTranscribeArgs args,
         CancellationToken cancellationToken)
     {
-        var preferred = _settings?.SttEngine ?? SttCapability.DefaultEngine;
-        string? fallbackReason = null;
-
-        // Whisper preference + not ready → transparently fall back to WinRT.
-        if (string.Equals(preferred, SttCapability.EngineWhisper, StringComparison.OrdinalIgnoreCase) && !IsWhisperReady())
-        {
-            preferred = SttCapability.EngineWinRt;
-            fallbackReason = "whisper-model-not-ready";
-        }
+        var pick = SttEngineSelector.PickEngine(
+            _settings?.SttEngine,
+            whisperReady: IsWhisperReady(),
+            winRtReady: _speechToTextService != null);
+        var preferred = pick.Engine;
+        var fallbackReason = pick.FallbackReason;
 
         if (string.Equals(preferred, SttCapability.EngineWhisper, StringComparison.OrdinalIgnoreCase))
         {
@@ -1440,14 +1437,12 @@ public sealed class NodeService : IDisposable
         SttListenArgs args,
         CancellationToken cancellationToken)
     {
-        var preferred = _settings?.SttEngine ?? SttCapability.DefaultEngine;
-        string? fallbackReason = null;
-
-        if (string.Equals(preferred, SttCapability.EngineWhisper, StringComparison.OrdinalIgnoreCase) && !IsWhisperReady())
-        {
-            preferred = SttCapability.EngineWinRt;
-            fallbackReason = "whisper-model-not-ready";
-        }
+        var pick = SttEngineSelector.PickEngine(
+            _settings?.SttEngine,
+            whisperReady: IsWhisperReady(),
+            winRtReady: _speechToTextService != null);
+        var preferred = pick.Engine;
+        var fallbackReason = pick.FallbackReason;
 
         if (string.Equals(preferred, SttCapability.EngineWhisper, StringComparison.OrdinalIgnoreCase))
         {
@@ -1513,31 +1508,32 @@ public sealed class NodeService : IDisposable
 
     private Task<SttStatusResult> OnSttStatusAsync(CancellationToken cancellationToken)
     {
-        var preferred = _settings?.SttEngine ?? SttCapability.DefaultEngine;
         var whisperReady = IsWhisperReady();
         var whisperReadiness = whisperReady ? "ready"
             : _voiceService == null ? "unavailable"
             : _voiceService.IsWhisperDownloadingModel ? "model-downloading"
             : "initializing";
-        var winRtReadiness = _speechToTextService != null ? "ready" : "unavailable";
+        var winRtReady = _speechToTextService != null;
+        var winRtReadiness = winRtReady ? "ready" : "unavailable";
 
-        var effective = preferred;
-        if (string.Equals(preferred, SttCapability.EngineWhisper, StringComparison.OrdinalIgnoreCase) && !whisperReady)
-        {
-            effective = SttCapability.EngineWinRt;
-        }
+        var pick = SttEngineSelector.PickEngine(_settings?.SttEngine, whisperReady, winRtReady);
 
         return Task.FromResult(new SttStatusResult
         {
-            PreferredEngine = preferred,
-            EffectiveEngine = effective,
+            // Report the user's literal preference in PreferredEngine
+            // (not the post-fallback effective engine), and let the
+            // selector tell us what would actually serve the next call.
+            PreferredEngine = string.IsNullOrWhiteSpace(_settings?.SttEngine)
+                ? SttCapability.DefaultEngine
+                : _settings!.SttEngine,
+            EffectiveEngine = pick.Engine,
             WhisperReadiness = whisperReadiness,
             WhisperModelDownloadProgress = _voiceService?.WhisperModelDownloadProgress,
             WhisperIsListenWithVadSupported = whisperReady,
             WhisperIsBoundedTranscribeSupported = whisperReady,
             WinRtReadiness = winRtReadiness,
-            WinRtIsListenWithVadSupported = winRtReadiness == "ready",
-            WinRtIsBoundedTranscribeSupported = winRtReadiness == "ready"
+            WinRtIsListenWithVadSupported = winRtReady,
+            WinRtIsBoundedTranscribeSupported = winRtReady
         });
     }
 
