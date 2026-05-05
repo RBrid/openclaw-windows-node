@@ -2271,4 +2271,63 @@
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>删除任务</value>
   </data>
+  <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
+  <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
+    <value>识别麦克风音频。Whisper 在本机本地运行；Windows 内置语音是免下载的替代方案，在 Whisper 未就绪时使用。</value>
+  </data>
+  <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
+    <value>🎤 语音转文字</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineComboBox.Header" xml:space="preserve">
+    <value>引擎</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineWhisper.Content" xml:space="preserve">
+    <value>Whisper（本地 ML，推荐）</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineWinRt.Content" xml:space="preserve">
+    <value>Windows 内置（无需下载）</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
+    <value>BCP-47 标签（例如 en-US、fr-FR、ja-JP）或 &apos;auto&apos; 让 Whisper 自动检测语言。</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageLabel.Text" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageTextBox.PlaceholderText" xml:space="preserve">
+    <value>auto</value>
+  </data>
+  <data name="CapabilitiesPage_SttMoreSettingsLink.Content" xml:space="preserve">
+    <value>更多语音设置…</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardDescription.Text" xml:space="preserve">
+    <value>tts.speak 的默认提供程序。按调用传入的 provider/voiceId/model 会覆盖此默认值。</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardHeader.Text" xml:space="preserve">
+    <value>🔊 文字转语音</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsApiKey.Header" xml:space="preserve">
+    <value>ElevenLabs API 密钥</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsHelp.Text" xml:space="preserve">
+    <value>API 密钥使用 Windows DPAPI 加密保存。修改其他字段时如保持为空，则保留先前保存的值。</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.Header" xml:space="preserve">
+    <value>ElevenLabs 模型</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.PlaceholderText" xml:space="preserve">
+    <value>eleven_multilingual_v2</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsVoiceId.Header" xml:space="preserve">
+    <value>ElevenLabs 语音 ID</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderComboBox.Header" xml:space="preserve">
+    <value>提供程序</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderElevenLabs.Content" xml:space="preserve">
+    <value>ElevenLabs</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderWindows.Content" xml:space="preserve">
+    <value>Windows 内置语音</value>
+  </data>
+
 </root>

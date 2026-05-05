@@ -2338,4 +2338,63 @@ On your gateway host (Mac/Linux), run:
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>Remove job</value>
   </data>
+  <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
+  <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
+    <value>Recognizes microphone audio. Whisper runs locally on this PC; Windows built-in is the no-download alternative used while Whisper isn&apos;t ready.</value>
+  </data>
+  <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
+    <value>🎤 Speech-to-Text</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineComboBox.Header" xml:space="preserve">
+    <value>Engine</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineWhisper.Content" xml:space="preserve">
+    <value>Whisper (local ML, recommended)</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineWinRt.Content" xml:space="preserve">
+    <value>Windows built-in (no download required)</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
+    <value>BCP-47 tag (e.g. en-US, fr-FR, ja-JP) or &apos;auto&apos; to let Whisper detect the language.</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageLabel.Text" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageTextBox.PlaceholderText" xml:space="preserve">
+    <value>auto</value>
+  </data>
+  <data name="CapabilitiesPage_SttMoreSettingsLink.Content" xml:space="preserve">
+    <value>More voice settings…</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardDescription.Text" xml:space="preserve">
+    <value>Default provider for tts.speak. Per-call provider/voiceId/model overrides this default.</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardHeader.Text" xml:space="preserve">
+    <value>🔊 Text-to-Speech</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsApiKey.Header" xml:space="preserve">
+    <value>ElevenLabs API key</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsHelp.Text" xml:space="preserve">
+    <value>API key is encrypted at rest with Windows DPAPI. Leave blank to keep the previously saved value when you change other fields.</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.Header" xml:space="preserve">
+    <value>ElevenLabs model</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.PlaceholderText" xml:space="preserve">
+    <value>eleven_multilingual_v2</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsVoiceId.Header" xml:space="preserve">
+    <value>ElevenLabs voice ID</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderComboBox.Header" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderElevenLabs.Content" xml:space="preserve">
+    <value>ElevenLabs</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderWindows.Content" xml:space="preserve">
+    <value>Windows built-in speech</value>
+  </data>
+
 </root>

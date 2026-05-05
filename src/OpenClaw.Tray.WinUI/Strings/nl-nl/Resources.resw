@@ -2271,4 +2271,63 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>Taak verwijderen</value>
   </data>
+  <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
+  <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
+    <value>Herkent microfoonaudio. Whisper draait lokaal op deze PC; ingebouwde Windows-spraak is het alternatief zonder download dat wordt gebruikt zolang Whisper niet gereed is.</value>
+  </data>
+  <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
+    <value>🎤 Spraak-naar-tekst</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineComboBox.Header" xml:space="preserve">
+    <value>Motor</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineWhisper.Content" xml:space="preserve">
+    <value>Whisper (lokale ML, aanbevolen)</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineWinRt.Content" xml:space="preserve">
+    <value>Ingebouwde Windows (geen download vereist)</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
+    <value>BCP-47-tag (bijv. en-US, fr-FR, ja-JP) of &apos;auto&apos; om Whisper de taal te laten detecteren.</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageLabel.Text" xml:space="preserve">
+    <value>Taal</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageTextBox.PlaceholderText" xml:space="preserve">
+    <value>auto</value>
+  </data>
+  <data name="CapabilitiesPage_SttMoreSettingsLink.Content" xml:space="preserve">
+    <value>Meer spraakinstellingen…</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardDescription.Text" xml:space="preserve">
+    <value>Standaardaanbieder voor tts.speak. Per-aanroep provider/voiceId/model overschrijft deze standaard.</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardHeader.Text" xml:space="preserve">
+    <value>🔊 Tekst-naar-spraak</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsApiKey.Header" xml:space="preserve">
+    <value>ElevenLabs API-sleutel</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsHelp.Text" xml:space="preserve">
+    <value>API-sleutel wordt versleuteld opgeslagen met Windows DPAPI. Laat leeg om de eerder opgeslagen waarde te behouden bij het wijzigen van andere velden.</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.Header" xml:space="preserve">
+    <value>ElevenLabs-model</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.PlaceholderText" xml:space="preserve">
+    <value>eleven_multilingual_v2</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsVoiceId.Header" xml:space="preserve">
+    <value>ElevenLabs stem-ID</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderComboBox.Header" xml:space="preserve">
+    <value>Aanbieder</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderElevenLabs.Content" xml:space="preserve">
+    <value>ElevenLabs</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderWindows.Content" xml:space="preserve">
+    <value>Ingebouwde Windows-spraak</value>
+  </data>
+
 </root>

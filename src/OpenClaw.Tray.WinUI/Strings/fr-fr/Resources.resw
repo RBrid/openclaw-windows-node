@@ -2271,4 +2271,63 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>Supprimer la tâche</value>
   </data>
+  <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
+  <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
+    <value>Reconnaît l&apos;audio du microphone. Whisper s&apos;exécute localement sur ce PC ; le moteur intégré Windows est l&apos;alternative sans téléchargement utilisée tant que Whisper n&apos;est pas prêt.</value>
+  </data>
+  <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
+    <value>🎤 Reconnaissance vocale</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineComboBox.Header" xml:space="preserve">
+    <value>Moteur</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineWhisper.Content" xml:space="preserve">
+    <value>Whisper (ML local, recommandé)</value>
+  </data>
+  <data name="CapabilitiesPage_SttEngineWinRt.Content" xml:space="preserve">
+    <value>Intégré à Windows (aucun téléchargement requis)</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
+    <value>Étiquette BCP-47 (par ex. en-US, fr-FR, ja-JP) ou « auto » pour laisser Whisper détecter la langue.</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageLabel.Text" xml:space="preserve">
+    <value>Langue</value>
+  </data>
+  <data name="CapabilitiesPage_SttLanguageTextBox.PlaceholderText" xml:space="preserve">
+    <value>auto</value>
+  </data>
+  <data name="CapabilitiesPage_SttMoreSettingsLink.Content" xml:space="preserve">
+    <value>Plus de paramètres vocaux…</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardDescription.Text" xml:space="preserve">
+    <value>Fournisseur par défaut pour tts.speak. Le fournisseur/voiceId/modèle par appel remplace cette valeur par défaut.</value>
+  </data>
+  <data name="CapabilitiesPage_TtsCardHeader.Text" xml:space="preserve">
+    <value>🔊 Synthèse vocale</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsApiKey.Header" xml:space="preserve">
+    <value>Clé API ElevenLabs</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsHelp.Text" xml:space="preserve">
+    <value>La clé API est chiffrée au repos avec Windows DPAPI. Laissez vide pour conserver la valeur précédente lorsque vous modifiez d&apos;autres champs.</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.Header" xml:space="preserve">
+    <value>Modèle ElevenLabs</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsModel.PlaceholderText" xml:space="preserve">
+    <value>eleven_multilingual_v2</value>
+  </data>
+  <data name="CapabilitiesPage_TtsElevenLabsVoiceId.Header" xml:space="preserve">
+    <value>ID de voix ElevenLabs</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderComboBox.Header" xml:space="preserve">
+    <value>Fournisseur</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderElevenLabs.Content" xml:space="preserve">
+    <value>ElevenLabs</value>
+  </data>
+  <data name="CapabilitiesPage_TtsProviderWindows.Content" xml:space="preserve">
+    <value>Voix intégrée à Windows</value>
+  </data>
+
 </root>
