@@ -74,6 +74,7 @@ public sealed class NodeService : IDisposable
     private SpeechToText.SpeechToTextService? _speechToTextService;
     private TtsCapability? _ttsCapability;
     private TextToSpeechService? _textToSpeechService;
+    private AppCapability? _appCapability;
     private readonly string _dataPath;
     private string? _token;
 
@@ -117,6 +118,7 @@ public sealed class NodeService : IDisposable
     private McpHttpServer? _mcpServer;
     private string? _mcpStartupError;
     public bool IsMcpRunning => _mcpServer != null;
+    public AppCapability? AppCapability => _appCapability;
     public string McpEndpoint => McpServerUrl;
     /// <summary>Last MCP server startup error, or null if it started cleanly. Surfaced by Settings UI.</summary>
     public string? McpStartupError => _mcpStartupError;
@@ -136,6 +138,12 @@ public sealed class NodeService : IDisposable
     public string? ShortDeviceId => _nodeClient?.ShortDeviceId;
     public string? FullDeviceId => _nodeClient?.FullDeviceId;
     public string? GatewayUrl => _nodeClient?.GatewayUrl;
+
+    /// <summary>Show the canvas window (creates it if needed).</summary>
+    public void ShowCanvasWindow()
+    {
+        _dispatcherQueue.TryEnqueue(EnsureCanvasWindow);
+    }
     
     public NodeService(
         IOpenClawLogger logger,
@@ -239,6 +247,10 @@ public sealed class NodeService : IDisposable
         lock (_capabilitiesLock)
         {
         _capabilities.Clear();
+
+        // App operations capability (always registered, not gated by a toggle)
+        _appCapability = new AppCapability(_logger);
+        Register(_appCapability);
 
         // System capability (notifications + command execution)
         _systemCapability = new SystemCapability(_logger);
