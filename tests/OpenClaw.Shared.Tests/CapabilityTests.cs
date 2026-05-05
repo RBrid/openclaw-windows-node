@@ -3430,20 +3430,16 @@ public class SttCapabilityTests
     }
 
     [Fact]
-    public async Task Status_ReturnsPerEngineReadiness()
+    public async Task Status_ReturnsEngineReadiness()
     {
         var cap = new SttCapability(NullLogger.Instance);
         cap.StatusRequested += _ => Task.FromResult(new SttStatusResult
         {
-            PreferredEngine = SttCapability.EngineWhisper,
-            EffectiveEngine = SttCapability.EngineWinRt,
-            WhisperReadiness = "model-downloading",
-            WhisperModelDownloadProgress = 0.42,
-            WhisperIsListenWithVadSupported = false,
-            WhisperIsBoundedTranscribeSupported = false,
-            WinRtReadiness = "ready",
-            WinRtIsListenWithVadSupported = true,
-            WinRtIsBoundedTranscribeSupported = true,
+            Engine = SttCapability.EngineWhisper,
+            Readiness = "model-downloading",
+            ModelDownloadProgress = 0.42,
+            IsListenWithVadSupported = false,
+            IsBoundedTranscribeSupported = false,
         });
 
         var res = await cap.ExecuteAsync(new NodeInvokeRequest
@@ -3455,11 +3451,14 @@ public class SttCapabilityTests
 
         Assert.True(res.Ok);
         var json = System.Text.Json.JsonSerializer.Serialize(res.Payload);
-        Assert.Contains("\"preferredEngine\":\"whisper\"", json);
-        Assert.Contains("\"effectiveEngine\":\"winrt\"", json);
+        Assert.Contains("\"engine\":\"whisper\"", json);
         Assert.Contains("\"readiness\":\"model-downloading\"", json);
         Assert.Contains("\"modelDownloadProgress\":0.42", json);
-        Assert.Contains("\"readiness\":\"ready\"", json);
+        // No PII fields ever surface in stt.status — even when synthesizing
+        // a result, callers can only see flat readiness strings + a single
+        // engine identifier.
+        Assert.DoesNotContain("language", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("path", json, StringComparison.OrdinalIgnoreCase);
     }
 
     // ============================================================

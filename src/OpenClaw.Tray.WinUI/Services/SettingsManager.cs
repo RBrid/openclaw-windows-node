@@ -66,8 +66,6 @@ public class SettingsManager
     public bool NodeLocationEnabled { get; set; } = true;
     public bool NodeBrowserProxyEnabled { get; set; } = true;
     public bool NodeSttEnabled { get; set; } = false;
-    /// <summary>Preferred STT engine: "whisper" (default, local ML) or "winrt".</summary>
-    public string SttEngine { get; set; } = "whisper";
     /// <summary>STT language: "auto" for Whisper auto-detect, or a BCP-47 tag like "en-US".</summary>
     public string SttLanguage { get; set; } = "auto";
     /// <summary>Whisper model size: "tiny", "base", or "small".</summary>
@@ -156,7 +154,6 @@ public class SettingsManager
                     NodeLocationEnabled = loaded.NodeLocationEnabled;
                     NodeBrowserProxyEnabled = loaded.NodeBrowserProxyEnabled;
                     NodeSttEnabled = loaded.NodeSttEnabled;
-                    SttEngine = string.IsNullOrWhiteSpace(loaded.SttEngine) ? SttEngine : loaded.SttEngine;
                     SttLanguage = string.IsNullOrWhiteSpace(loaded.SttLanguage) ? SttLanguage : loaded.SttLanguage;
                     SttModelName = string.IsNullOrWhiteSpace(loaded.SttModelName) ? SttModelName : loaded.SttModelName;
                     SttSilenceTimeout = loaded.SttSilenceTimeout > 0 ? loaded.SttSilenceTimeout : SttSilenceTimeout;
@@ -237,7 +234,6 @@ public class SettingsManager
                 NodeLocationEnabled = NodeLocationEnabled,
                 NodeBrowserProxyEnabled = NodeBrowserProxyEnabled,
                 NodeSttEnabled = NodeSttEnabled,
-                SttEngine = SttEngine,
                 SttLanguage = SttLanguage,
                 SttModelName = SttModelName,
                 SttSilenceTimeout = SttSilenceTimeout,

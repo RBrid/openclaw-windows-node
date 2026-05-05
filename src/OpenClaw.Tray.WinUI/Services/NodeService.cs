@@ -76,7 +76,6 @@ public sealed class NodeService : IDisposable
     private DeviceStatusProvider? _deviceStatusProvider;
     private BrowserProxyCapability? _browserProxyCapability;
     private SttCapability? _sttCapability;
-    private SpeechToText.SpeechToTextService? _speechToTextService;
     private TtsCapability? _ttsCapability;
     private TextToSpeechService? _textToSpeechService;
     private VoiceService? _voiceService;
@@ -316,12 +315,14 @@ public sealed class NodeService : IDisposable
 
         if (NodeCapabilityGating.ShouldRegisterStt(_settings))
         {
-            // Both engines are constructed eagerly; readiness checks happen
-            // per-call in the handlers. Whisper is the default; WinRT is the
-            // user-selectable alternative AND the auto-fallback while
-            // Whisper is downloading / initializing.
+            // Whisper is the only STT engine. The legacy WinRT
+            // SpeechRecognizer + desktop SAPI fallback was removed —
+            // both stacks are old, can leak audio to the Microsoft
+            // cloud (online speech), and don't activate in unpackaged
+            // builds. When the Whisper model isn't downloaded yet, the
+            // handlers return a clear error pointing the caller at the
+            // Voice Settings page; there is no automatic fallback.
             _voiceService ??= new VoiceService(_logger, _settings);
-            _speechToTextService ??= new SpeechToText.SpeechToTextService(_logger, _settings);
             _sttCapability = new SttCapability(_logger);
             _sttCapability.TranscribeRequested += OnSttTranscribeAsync;
             _sttCapability.ListenRequested += OnSttListenAsync;
@@ -1331,32 +1332,23 @@ public sealed class NodeService : IDisposable
     }
 
     // ============================================================
-    // STT engine selector + handlers
+    // ============================================================
+    // STT handlers
     //
-    // Two engines coexist:
-    //   * VoiceService          — Whisper.net pipeline (NAudio + Silero VAD)
-    //   * SpeechToTextService   — WinRT SpeechRecognizer + desktop SAPI fallback
+    // Single engine: VoiceService (Whisper.net + NAudio + Silero VAD).
+    // The legacy WinRT/SAPI engine and the engine selector have been
+    // removed — see Audio_FollowUps.md for the rationale.
     //
-    // The user picks the preferred engine via SettingsManager.SttEngine.
-    // While a Whisper model is still downloading (or otherwise unavailable),
-    // calls fall back transparently to WinRT for `stt.transcribe` (which is
-    // bounded and works without a model). `stt.listen` requires VAD, so it
-    // falls back to WinRT's continuous-with-end-of-speech mode.
-    //
-    // If the user explicitly picks WinRT, we honor it — no silent upgrade
-    // to Whisper even if the model finishes downloading mid-session.
+    // When the Whisper model isn't downloaded yet, every stt.* call
+    // returns a clear error pointing the caller at the Voice Settings
+    // page download button. There is no automatic fallback engine.
     //
     // Privacy: handlers never include caller-supplied args or runtime
-    // details in error messages. SttCapability already wraps the response
-    // surface; this layer only logs locally on failure.
+    // details in error messages. SttCapability already wraps the
+    // response surface; this layer only logs locally on failure.
     // ============================================================
 
-    private bool IsWhisperReady() =>
-        _voiceService != null
-        // VoiceService.IsWhisperReady reports model-loaded state synchronously.
-        // The selector keeps the synchronous probe so we don't await on the
-        // hot path of every stt.* call.
-        && _voiceService.IsWhisperReady;
+    private bool IsWhisperReady() => _voiceService != null && _voiceService.IsWhisperReady;
 
     private static string ResolveListenLanguage(string? configured)
     {
@@ -1372,70 +1364,29 @@ public sealed class NodeService : IDisposable
         SttTranscribeArgs args,
         CancellationToken cancellationToken)
     {
-        var pick = SttEngineSelector.PickEngine(
-            _settings?.SttEngine,
-            whisperReady: IsWhisperReady(),
-            winRtReady: _speechToTextService != null);
-        var preferred = pick.Engine;
-        var fallbackReason = pick.FallbackReason;
+        if (_voiceService == null)
+            throw new InvalidOperationException("Voice service not available");
+        if (!_voiceService.IsWhisperReady)
+            throw new InvalidOperationException("Whisper model not downloaded");
 
-        if (string.Equals(preferred, SttCapability.EngineWhisper, StringComparison.OrdinalIgnoreCase))
+        // VoiceService produces SttListenResult; we adapt it to TranscribeResult
+        // by treating maxDurationMs as the upper bound on capture time.
+        var listenArgs = new SttListenArgs
         {
-            if (_voiceService == null)
-                throw new InvalidOperationException("Voice service not available");
-
-            // Whisper engine: use VAD-disabled bounded capture via VoiceService.
-            // VoiceService produces SttListenResult; we adapt it to TranscribeResult.
-            var listenArgs = new SttListenArgs
-            {
-                TimeoutMs = args.MaxDurationMs,
-                Language = !string.IsNullOrWhiteSpace(args.Language)
-                    ? args.Language!
-                    : ResolveListenLanguage(_settings?.SttLanguage)
-            };
-            var listenResult = await _voiceService.ListenOnceAsync(listenArgs, cancellationToken).ConfigureAwait(false);
-            return new SttTranscribeResult
-            {
-                Transcribed = !string.IsNullOrEmpty(listenResult.Text),
-                Text = listenResult.Text,
-                DurationMs = listenResult.DurationMs,
-                Language = listenResult.Language,
-                EngineEffective = SttCapability.EngineWhisper,
-                EngineFallbackReason = fallbackReason
-            };
-        }
-
-        // WinRT engine via existing SpeechToTextService. Marshal to UI thread
-        // because WinRT SpeechRecognizer requires an STA dispatcher.
-        if (_speechToTextService == null)
-            throw new InvalidOperationException("Speech-to-text service not available");
-
-        var tcs = new TaskCompletionSource<SttTranscribeResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var registration = cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
-
-        bool enqueued = _dispatcherQueue.TryEnqueue(async () =>
+            TimeoutMs = args.MaxDurationMs,
+            Language = !string.IsNullOrWhiteSpace(args.Language)
+                ? args.Language!
+                : ResolveListenLanguage(_settings?.SttLanguage)
+        };
+        var listenResult = await _voiceService.ListenOnceAsync(listenArgs, cancellationToken).ConfigureAwait(false);
+        return new SttTranscribeResult
         {
-            try
-            {
-                var result = await _speechToTextService.TranscribeAsync(args, cancellationToken).ConfigureAwait(false);
-                result.EngineEffective = SttCapability.EngineWinRt;
-                result.EngineFallbackReason = fallbackReason;
-                tcs.TrySetResult(result);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                tcs.TrySetCanceled(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                tcs.TrySetException(ex);
-            }
-        });
-
-        if (!enqueued)
-            tcs.TrySetException(new InvalidOperationException("Speech-to-text dispatcher unavailable"));
-
-        return await AwaitWithRegistrationAsync(tcs.Task, registration).ConfigureAwait(false);
+            Transcribed = !string.IsNullOrEmpty(listenResult.Text),
+            Text = listenResult.Text,
+            DurationMs = listenResult.DurationMs,
+            Language = listenResult.Language,
+            EngineEffective = SttCapability.EngineWhisper
+        };
     }
 
     private async Task<SttListenResult> OnSttListenAsync(
@@ -1443,13 +1394,7 @@ public sealed class NodeService : IDisposable
         CancellationToken cancellationToken)
     {
         // Defense-in-depth rate-limit: a compromised gateway could otherwise
-        // loop stt.listen at the max 120 s window indefinitely. We require
-        // a 1-second cooldown between successive starts, which is
-        // imperceptible to a real user but makes a hostile loop visibly
-        // throttled. Local UI-driven calls go through the same path (e.g.
-        // VoiceOverlayWindow); the cooldown is short enough that a
-        // human pressing the hotkey twice in a second still gets the
-        // second call immediately after the first completes.
+        // loop stt.listen at the max 120 s window indefinitely.
         var now = DateTimeOffset.UtcNow;
         var sinceLast = now - _lastSttListenStartUtc;
         if (sinceLast < SttListenMinInterval)
@@ -1458,116 +1403,33 @@ public sealed class NodeService : IDisposable
         }
         _lastSttListenStartUtc = now;
 
-        var pick = SttEngineSelector.PickEngine(
-            _settings?.SttEngine,
-            whisperReady: IsWhisperReady(),
-            winRtReady: _speechToTextService != null);
-        var preferred = pick.Engine;
-        var fallbackReason = pick.FallbackReason;
+        if (_voiceService == null)
+            throw new InvalidOperationException("Voice service not available");
+        if (!_voiceService.IsWhisperReady)
+            throw new InvalidOperationException("Whisper model not downloaded");
 
-        if (string.Equals(preferred, SttCapability.EngineWhisper, StringComparison.OrdinalIgnoreCase))
-        {
-            if (_voiceService == null)
-                throw new InvalidOperationException("Voice service not available");
-
-            var result = await _voiceService.ListenOnceAsync(args, cancellationToken).ConfigureAwait(false);
-            result.EngineEffective = SttCapability.EngineWhisper;
-            result.EngineFallbackReason = fallbackReason;
-            return result;
-        }
-
-        // WinRT engine path: continuous recognition with WinRT's own
-        // end-of-speech detection, capped at args.TimeoutMs.
-        if (_speechToTextService == null)
-            throw new InvalidOperationException("Speech-to-text service not available");
-
-        var tcs = new TaskCompletionSource<SttListenResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var registration = cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
-
-        bool enqueued = _dispatcherQueue.TryEnqueue(async () =>
-        {
-            try
-            {
-                // Adapt: SpeechToTextService.TranscribeAsync(maxDurationMs) is the
-                // closest WinRT equivalent — it captures up to N ms with the
-                // recognizer's built-in end-of-speech detection.
-                var transcribeResult = await _speechToTextService.TranscribeAsync(
-                    new SttTranscribeArgs
-                    {
-                        MaxDurationMs = args.TimeoutMs,
-                        Language = string.Equals(args.Language, SttCapability.AutoLanguage, StringComparison.OrdinalIgnoreCase)
-                            ? null
-                            : args.Language
-                    },
-                    cancellationToken).ConfigureAwait(false);
-
-                tcs.TrySetResult(new SttListenResult
-                {
-                    Text = transcribeResult.Text,
-                    Language = transcribeResult.Language,
-                    DurationMs = transcribeResult.DurationMs,
-                    Segments = Array.Empty<SttSegment>(),  // WinRT recognizer doesn't expose segment timings
-                    EngineEffective = SttCapability.EngineWinRt,
-                    EngineFallbackReason = fallbackReason
-                });
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                tcs.TrySetCanceled(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                tcs.TrySetException(ex);
-            }
-        });
-
-        if (!enqueued)
-            tcs.TrySetException(new InvalidOperationException("Speech-to-text dispatcher unavailable"));
-
-        return await AwaitWithRegistrationAsync(tcs.Task, registration).ConfigureAwait(false);
+        var result = await _voiceService.ListenOnceAsync(args, cancellationToken).ConfigureAwait(false);
+        result.EngineEffective = SttCapability.EngineWhisper;
+        return result;
     }
 
     private Task<SttStatusResult> OnSttStatusAsync(CancellationToken cancellationToken)
     {
-        var whisperReady = IsWhisperReady();
-        var whisperReadiness = whisperReady ? "ready"
+        var ready = IsWhisperReady();
+        var readiness = ready ? "ready"
             : _voiceService == null ? "unavailable"
             : _voiceService.IsWhisperDownloadingModel ? "model-downloading"
-            : "initializing";
-        var winRtReady = _speechToTextService != null;
-        var winRtReadiness = winRtReady ? "ready" : "unavailable";
-
-        var pick = SttEngineSelector.PickEngine(_settings?.SttEngine, whisperReady, winRtReady);
+            : _voiceService.IsModelDownloaded ? "initializing"
+            : "model-not-downloaded";
 
         return Task.FromResult(new SttStatusResult
         {
-            // Report the user's literal preference in PreferredEngine
-            // (not the post-fallback effective engine), and let the
-            // selector tell us what would actually serve the next call.
-            PreferredEngine = string.IsNullOrWhiteSpace(_settings?.SttEngine)
-                ? SttCapability.DefaultEngine
-                : _settings!.SttEngine,
-            EffectiveEngine = pick.Engine,
-            WhisperReadiness = whisperReadiness,
-            WhisperModelDownloadProgress = _voiceService?.WhisperModelDownloadProgress,
-            WhisperIsListenWithVadSupported = whisperReady,
-            WhisperIsBoundedTranscribeSupported = whisperReady,
-            WinRtReadiness = winRtReadiness,
-            WinRtIsListenWithVadSupported = winRtReady,
-            WinRtIsBoundedTranscribeSupported = winRtReady
+            Engine = SttCapability.EngineWhisper,
+            Readiness = readiness,
+            ModelDownloadProgress = _voiceService?.WhisperModelDownloadProgress,
+            IsListenWithVadSupported = ready,
+            IsBoundedTranscribeSupported = ready
         });
-    }
-
-    private static async Task<T> AwaitWithRegistrationAsync<T>(Task<T> task, CancellationTokenRegistration registration)
-    {
-        try
-        {
-            return await task;
-        }
-        finally
-        {
-            await registration.DisposeAsync();
-        }
     }
     
     #endregion
@@ -1582,7 +1444,6 @@ public sealed class NodeService : IDisposable
 
         try { _cameraCaptureService?.Dispose(); } catch { /* ignore */ }
         try { _screenRecordingService?.Dispose(); } catch { /* ignore */ }
-        try { _speechToTextService?.Dispose(); } catch { /* ignore */ }
         try { _textToSpeechService?.Dispose(); } catch { /* ignore */ }
         try { _voiceService?.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { /* ignore */ }
         // MediaResolver owns SocketsHttpHandler + HttpClient (disposeHandler:true);

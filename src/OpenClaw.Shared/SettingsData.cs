@@ -35,9 +35,7 @@ public class SettingsData
     public bool NodeLocationEnabled { get; set; } = true;
     public bool NodeBrowserProxyEnabled { get; set; } = true;
     public bool NodeSttEnabled { get; set; } = false;
-    /// <summary>Preferred STT engine: "whisper" (default, local ML) or "winrt".</summary>
-    public string SttEngine { get; set; } = "whisper";
-    /// <summary>STT language: "auto" for auto-detect (Whisper), or a BCP-47 tag like "en-US".</summary>
+    /// <summary>STT language: "auto" for Whisper auto-detect, or a BCP-47 tag like "en-US".</summary>
     public string SttLanguage { get; set; } = "auto";
     /// <summary>Whisper model name: "tiny", "base", or "small".</summary>
     public string SttModelName { get; set; } = "base";

@@ -38,7 +38,6 @@ public class SettingsRoundTripTests
             NodeLocationEnabled = true,
             NodeBrowserProxyEnabled = false,
             NodeSttEnabled = true,
-            SttEngine = "winrt",
             SttLanguage = "en-GB",
             SttModelName = "tiny",
             SttSilenceTimeout = 2.5f,
@@ -90,7 +89,6 @@ public class SettingsRoundTripTests
         Assert.Equal(original.NodeLocationEnabled, restored.NodeLocationEnabled);
         Assert.Equal(original.NodeBrowserProxyEnabled, restored.NodeBrowserProxyEnabled);
         Assert.Equal(original.NodeSttEnabled, restored.NodeSttEnabled);
-        Assert.Equal(original.SttEngine, restored.SttEngine);
         Assert.Equal(original.SttLanguage, restored.SttLanguage);
         Assert.Equal(original.SttModelName, restored.SttModelName);
         Assert.Equal(original.SttSilenceTimeout, restored.SttSilenceTimeout);

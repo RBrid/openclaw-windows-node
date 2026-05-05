@@ -2345,15 +2345,6 @@ On your gateway host (Mac/Linux), run:
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 Speech-to-Text</value>
   </data>
-  <data name="CapabilitiesPage_SttEngineComboBox.Header" xml:space="preserve">
-    <value>Engine</value>
-  </data>
-  <data name="CapabilitiesPage_SttEngineWhisper.Content" xml:space="preserve">
-    <value>Whisper (local ML, recommended)</value>
-  </data>
-  <data name="CapabilitiesPage_SttEngineWinRt.Content" xml:space="preserve">
-    <value>Windows built-in (no download required)</value>
-  </data>
   <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
     <value>BCP-47 tag (e.g. en-US, fr-FR, ja-JP) or &apos;auto&apos; to let Whisper detect the language.</value>
   </data>

@@ -33,14 +33,9 @@
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="CapabilitiesPage_SttCardHeader" Text="🎤 Speech-to-Text" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                     <TextBlock x:Uid="CapabilitiesPage_SttCardDescription"
-                               Text="Recognizes microphone audio. Whisper runs locally on this PC; Windows built-in is the no-download alternative used while Whisper isn't ready."
+                               Text="Recognizes microphone audio locally on this PC using Whisper. The model must be downloaded once before STT can be used."
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                    <ComboBox x:Name="SttEngineComboBox" x:Uid="CapabilitiesPage_SttEngineComboBox" Header="Engine"
-                              SelectionChanged="OnSttEngineSelectionChanged">
-                        <ComboBoxItem x:Uid="CapabilitiesPage_SttEngineWhisper" Content="Whisper (local ML, recommended)" Tag="whisper"/>
-                        <ComboBoxItem x:Uid="CapabilitiesPage_SttEngineWinRt" Content="Windows built-in (no download required)" Tag="winrt"/>
-                    </ComboBox>
                     <TextBlock x:Name="SttEngineHint"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>

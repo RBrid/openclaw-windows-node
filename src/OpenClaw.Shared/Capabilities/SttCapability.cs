@@ -18,13 +18,13 @@ namespace OpenClaw.Shared.Capabilities;
 ///   <see cref="MinListenTimeoutMs"/>..<see cref="MaxListenTimeoutMs"/>).
 ///   Useful for conversational "listen until I stop talking" prompts.
 ///
-/// * <see cref="StatusCommand"/> — reports per-engine readiness (no PII).
+/// * <see cref="StatusCommand"/> — reports engine readiness (no PII).
 ///
-/// The actual engines live in the tray (Whisper.net pipeline, WinRT
-/// <c>SpeechRecognizer</c> with desktop SAPI fallback). The tray-side handler is
-/// responsible for picking the engine based on <c>SettingsManager.SttEngine</c>
-/// and falling back transparently when the preferred engine is not ready
-/// (e.g., Whisper model still downloading → use WinRT for this call).
+/// The actual engine lives in the tray (Whisper.net + NAudio + Silero VAD).
+/// Whisper is local-first and privacy-respecting; the legacy WinRT
+/// <c>SpeechRecognizer</c> + desktop SAPI fallback was removed because both
+/// stacks are old, can leak audio to the Microsoft cloud (online-speech),
+/// and don't work in unpackaged builds.
 ///
 /// **Privacy invariants for the response surface:**
 /// - Validation errors never echo the caller-supplied language string.
@@ -48,11 +48,12 @@ public sealed class SttCapability : NodeCapabilityBase
     public const string DefaultLanguage = "en-US";
     public const string AutoLanguage = "auto";
 
-    // Engine identifiers — the tray-side selector reads
-    // SettingsManager.SttEngine and dispatches accordingly.
+    /// <summary>
+    /// Engine identifier returned in <c>engineEffective</c> on every successful
+    /// stt.* response. Currently always <c>"whisper"</c>; the field exists so
+    /// adding a future engine doesn't break the wire shape.
+    /// </summary>
     public const string EngineWhisper = "whisper";
-    public const string EngineWinRt = "winrt";
-    public const string DefaultEngine = EngineWhisper;
 
     private static readonly string[] _commands = [TranscribeCommand, ListenCommand, StatusCommand];
 
@@ -173,8 +174,7 @@ public sealed class SttCapability : NodeCapabilityBase
                 text = result.Text,
                 durationMs = result.DurationMs,
                 language = result.Language,
-                engineEffective = result.EngineEffective,
-                engineFallbackReason = result.EngineFallbackReason
+                engineEffective = result.EngineEffective
             });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -232,8 +232,7 @@ public sealed class SttCapability : NodeCapabilityBase
                 language = result.Language,
                 durationMs = result.DurationMs,
                 segments = result.Segments,
-                engineEffective = result.EngineEffective,
-                engineFallbackReason = result.EngineFallbackReason
+                engineEffective = result.EngineEffective
             });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -258,21 +257,11 @@ public sealed class SttCapability : NodeCapabilityBase
             var result = await StatusRequested(cancellationToken).ConfigureAwait(false);
             return Success(new
             {
-                preferredEngine = result.PreferredEngine,
-                effectiveEngine = result.EffectiveEngine,
-                whisper = new
-                {
-                    readiness = result.WhisperReadiness,
-                    modelDownloadProgress = result.WhisperModelDownloadProgress,
-                    isListenWithVadSupported = result.WhisperIsListenWithVadSupported,
-                    isBoundedTranscribeSupported = result.WhisperIsBoundedTranscribeSupported
-                },
-                winrt = new
-                {
-                    readiness = result.WinRtReadiness,
-                    isListenWithVadSupported = result.WinRtIsListenWithVadSupported,
-                    isBoundedTranscribeSupported = result.WinRtIsBoundedTranscribeSupported
-                }
+                engine = result.Engine,
+                readiness = result.Readiness,
+                modelDownloadProgress = result.ModelDownloadProgress,
+                isListenWithVadSupported = result.IsListenWithVadSupported,
+                isBoundedTranscribeSupported = result.IsBoundedTranscribeSupported
             });
         }
         catch (Exception ex)
@@ -302,16 +291,10 @@ public sealed class SttTranscribeResult
     public string Language { get; set; } = SttCapability.DefaultLanguage;
 
     /// <summary>
-    /// Engine that actually served this call (e.g., "whisper", "winrt").
+    /// Engine that served this call. Always <see cref="SttCapability.EngineWhisper"/>
+    /// today; the field exists so a future engine doesn't break the wire.
     /// </summary>
-    public string EngineEffective { get; set; } = "";
-
-    /// <summary>
-    /// Non-null when the preferred engine could not serve the request and
-    /// the selector fell back to another (e.g. "whisper-model-not-ready").
-    /// Null on the happy path.
-    /// </summary>
-    public string? EngineFallbackReason { get; set; }
+    public string EngineEffective { get; set; } = SttCapability.EngineWhisper;
 }
 
 public sealed class SttListenArgs
@@ -331,8 +314,7 @@ public sealed class SttListenResult
     public int DurationMs { get; set; }
     public IReadOnlyList<SttSegment> Segments { get; set; } = Array.Empty<SttSegment>();
 
-    public string EngineEffective { get; set; } = "";
-    public string? EngineFallbackReason { get; set; }
+    public string EngineEffective { get; set; } = SttCapability.EngineWhisper;
 }
 
 public sealed class SttSegment
@@ -344,18 +326,14 @@ public sealed class SttSegment
 
 public sealed class SttStatusResult
 {
-    public string PreferredEngine { get; set; } = SttCapability.DefaultEngine;
-    public string EffectiveEngine { get; set; } = SttCapability.DefaultEngine;
+    public string Engine { get; set; } = SttCapability.EngineWhisper;
 
-    /// <summary>One of "ready", "initializing", "model-downloading", "unavailable".</summary>
-    public string WhisperReadiness { get; set; } = "unavailable";
-    /// <summary>0..1 model download progress when WhisperReadiness == "model-downloading"; null otherwise.</summary>
-    public double? WhisperModelDownloadProgress { get; set; }
-    public bool WhisperIsListenWithVadSupported { get; set; }
-    public bool WhisperIsBoundedTranscribeSupported { get; set; }
+    /// <summary>One of "ready", "initializing", "model-downloading", "model-not-downloaded", "unavailable".</summary>
+    public string Readiness { get; set; } = "unavailable";
 
-    /// <summary>One of "ready", "initializing", "unavailable".</summary>
-    public string WinRtReadiness { get; set; } = "unavailable";
-    public bool WinRtIsListenWithVadSupported { get; set; }
-    public bool WinRtIsBoundedTranscribeSupported { get; set; }
+    /// <summary>0..1 download progress when <see cref="Readiness"/> == "model-downloading"; null otherwise.</summary>
+    public double? ModelDownloadProgress { get; set; }
+
+    public bool IsListenWithVadSupported { get; set; }
+    public bool IsBoundedTranscribeSupported { get; set; }
 }

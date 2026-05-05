@@ -2278,15 +2278,6 @@
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 语音转文字</value>
   </data>
-  <data name="CapabilitiesPage_SttEngineComboBox.Header" xml:space="preserve">
-    <value>引擎</value>
-  </data>
-  <data name="CapabilitiesPage_SttEngineWhisper.Content" xml:space="preserve">
-    <value>Whisper（本地 ML，推荐）</value>
-  </data>
-  <data name="CapabilitiesPage_SttEngineWinRt.Content" xml:space="preserve">
-    <value>Windows 内置（无需下载）</value>
-  </data>
   <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
     <value>BCP-47 标签（例如 en-US、fr-FR、ja-JP）或 &apos;auto&apos; 让 Whisper 自动检测语言。</value>
   </data>

@@ -2278,15 +2278,6 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 Spraak-naar-tekst</value>
   </data>
-  <data name="CapabilitiesPage_SttEngineComboBox.Header" xml:space="preserve">
-    <value>Motor</value>
-  </data>
-  <data name="CapabilitiesPage_SttEngineWhisper.Content" xml:space="preserve">
-    <value>Whisper (lokale ML, aanbevolen)</value>
-  </data>
-  <data name="CapabilitiesPage_SttEngineWinRt.Content" xml:space="preserve">
-    <value>Ingebouwde Windows (geen download vereist)</value>
-  </data>
   <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
     <value>BCP-47-tag (bijv. en-US, fr-FR, ja-JP) of &apos;auto&apos; om Whisper de taal te laten detecteren.</value>
   </data>

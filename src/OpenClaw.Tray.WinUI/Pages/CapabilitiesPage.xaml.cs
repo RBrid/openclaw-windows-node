@@ -85,20 +85,11 @@ public sealed partial class CapabilitiesPage : Page
     // Speech-to-Text settings card
     // ============================================================
 
-    private bool _suppressSttEngineChange;
-
     private void UpdateSttCard(HubWindow hub)
     {
         var enabled = hub.Settings?.NodeSttEnabled == true;
         SttCard.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         if (!enabled || hub.Settings == null) return;
-
-        _suppressSttEngineChange = true;
-        SttEngineComboBox.SelectedIndex = string.Equals(
-            hub.Settings.SttEngine,
-            SttCapability.EngineWinRt,
-            StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-        _suppressSttEngineChange = false;
 
         SttLanguageTextBox.Text = hub.Settings.SttLanguage;
         SttStatusText.Text = "";
@@ -107,47 +98,24 @@ public sealed partial class CapabilitiesPage : Page
 
     private void UpdateSttEngineHint(HubWindow hub)
     {
+        // Whisper is the only engine. Surface model-readiness so the user
+        // knows what (if anything) needs to happen before stt.* will work.
         var voice = hub.VoiceServiceInstance;
         var modelReady = voice?.IsWhisperReady ?? false;
         var modelDownloading = voice?.IsWhisperDownloadingModel ?? false;
 
-        if (string.Equals(hub.Settings?.SttEngine, SttCapability.EngineWhisper, StringComparison.OrdinalIgnoreCase))
+        if (modelReady)
         {
-            if (modelReady)
-                SttEngineHint.Text = "Whisper model is ready.";
-            else if (modelDownloading)
-                SttEngineHint.Text = "Whisper model is downloading. Until it's ready, STT calls automatically use Windows built-in.";
-            else
-                SttEngineHint.Text = "Whisper model is not yet downloaded. Open More voice settings… to download it. Until then, STT calls automatically use Windows built-in.";
+            SttEngineHint.Text = "Whisper model is ready. Speech-to-text runs fully on this PC; no audio leaves the device.";
+        }
+        else if (modelDownloading)
+        {
+            SttEngineHint.Text = "Whisper model is downloading. Speech-to-text will be available once it's ready.";
         }
         else
         {
-            // Privacy: WinRT SpeechRecognizer honors the OS "Online speech
-            // recognition" toggle (Settings → Privacy → Speech). When that
-            // toggle is on, Windows may upload audio to Microsoft cloud
-            // services. Whisper is fully local; this hint surfaces the
-            // trade-off so the user can make an informed choice.
-            SttEngineHint.Text = "Using Windows built-in speech recognition. Note: Windows may upload audio to Microsoft if Online speech recognition is enabled in Windows Settings → Privacy → Speech. Use Whisper for fully local processing.";
+            SttEngineHint.Text = "Whisper model is not downloaded. Open More voice settings… to download it before using speech-to-text.";
         }
-    }
-
-    private void OnSttEngineSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressSttEngineChange) return;
-        if (_hub?.Settings == null) return;
-
-        var newEngine = (SttEngineComboBox.SelectedItem is ComboBoxItem item && item.Tag is string tag)
-            ? tag
-            : SttCapability.DefaultEngine;
-
-        if (!string.Equals(_hub.Settings.SttEngine, newEngine, StringComparison.OrdinalIgnoreCase))
-        {
-            _hub.Settings.SttEngine = newEngine;
-            _hub.Settings.Save();
-            _hub.RaiseSettingsSaved();
-            SttStatusText.Text = $"Preferred engine: {newEngine}";
-        }
-        UpdateSttEngineHint(_hub);
     }
 
     private void OnSttMoreSettingsClick(object sender, RoutedEventArgs e)

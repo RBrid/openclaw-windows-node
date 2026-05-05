@@ -2278,15 +2278,6 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 Reconnaissance vocale</value>
   </data>
-  <data name="CapabilitiesPage_SttEngineComboBox.Header" xml:space="preserve">
-    <value>Moteur</value>
-  </data>
-  <data name="CapabilitiesPage_SttEngineWhisper.Content" xml:space="preserve">
-    <value>Whisper (ML local, recommandé)</value>
-  </data>
-  <data name="CapabilitiesPage_SttEngineWinRt.Content" xml:space="preserve">
-    <value>Intégré à Windows (aucun téléchargement requis)</value>
-  </data>
   <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
     <value>Étiquette BCP-47 (par ex. en-US, fr-FR, ja-JP) ou « auto » pour laisser Whisper détecter la langue.</value>
   </data>

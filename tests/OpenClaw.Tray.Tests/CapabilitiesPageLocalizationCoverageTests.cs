@@ -66,12 +66,9 @@ public sealed class CapabilitiesPageLocalizationCoverageTests
     /// </summary>
     public static IEnumerable<object[]> SttAndTtsCardUids => new[]
     {
-        // STT card (engine picker, language, deep-link)
+        // STT card (language, deep-link)
         new object[] { "CapabilitiesPage_SttCardHeader",        new[] { ".Text" } },
         new object[] { "CapabilitiesPage_SttCardDescription",   new[] { ".Text" } },
-        new object[] { "CapabilitiesPage_SttEngineComboBox",    new[] { ".Header" } },
-        new object[] { "CapabilitiesPage_SttEngineWhisper",     new[] { ".Content" } },
-        new object[] { "CapabilitiesPage_SttEngineWinRt",       new[] { ".Content" } },
         new object[] { "CapabilitiesPage_SttLanguageLabel",     new[] { ".Text" } },
         new object[] { "CapabilitiesPage_SttLanguageTextBox",   new[] { ".PlaceholderText" } },
         new object[] { "CapabilitiesPage_SttLanguageHelp",      new[] { ".Text" } },
