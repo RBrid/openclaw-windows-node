@@ -192,17 +192,27 @@ public sealed partial class VoiceSettingsPage : Page
 
         try
         {
+            // Throttle UI updates: the underlying download streams in 80 KB
+            // chunks, so for a 466 MB model that's ~5,800 progress callbacks
+            // — each one Posts to the SyncContext and then queues a
+            // DispatcherQueue tick. The dispatcher saturates and the app
+            // appears frozen. Coalesce to at most one UI update per ~150 ms,
+            // and always force a final 100% update when the download
+            // completes so the user never sees a stuck "99%" before "Model
+            // ready" appears.
+            DateTime lastReportUtc = DateTime.MinValue;
             var progress = new Progress<(long downloaded, long total)>(p =>
             {
-                DispatcherQueue.TryEnqueue(() =>
+                var now = DateTime.UtcNow;
+                var isFinal = p.total > 0 && p.downloaded >= p.total;
+                if (!isFinal && now - lastReportUtc < TimeSpan.FromMilliseconds(150)) return;
+                lastReportUtc = now;
+                if (p.total > 0)
                 {
-                    if (p.total > 0)
-                    {
-                        var pct = (double)p.downloaded / p.total * 100;
-                        DownloadProgress.Value = pct;
-                        ModelStatusText.Text = $"Downloading... {pct:F0}%";
-                    }
-                });
+                    var pct = (double)p.downloaded / p.total * 100;
+                    DownloadProgress.Value = pct;
+                    ModelStatusText.Text = $"Downloading... {pct:F0}%";
+                }
             });
 
             // Download via the model manager directly so the user can fetch
@@ -213,6 +223,11 @@ public sealed partial class VoiceSettingsPage : Page
             // so the on-disk result is identical.
             var manager = new OpenClaw.Shared.Audio.WhisperModelManager(
                 SettingsManager.SettingsDirectoryPath, new AppLogger());
+            // Re-download semantic: when the file is already present the
+            // button label flips to "Re-download" (UpdateModelStatus). The
+            // download manager short-circuits if the file exists, so we
+            // delete first to force a fresh fetch + SHA-256 re-verify.
+            manager.DeleteModel(_hub.Settings.SttModelName);
             await manager.DownloadModelAsync(
                 _hub.Settings.SttModelName,
                 progress,
@@ -352,8 +367,16 @@ public sealed partial class VoiceSettingsPage : Page
         try
         {
             var voices = new OpenClaw.Shared.Audio.PiperVoiceManager(SettingsManager.SettingsDirectoryPath, new AppLogger());
+            // Same throttling story as the Whisper download: ~80 KB per
+            // streaming callback × ~150 MB voices = ~1,800 reports. Coalesce
+            // to ≥150 ms intervals so we don't choke the dispatcher.
+            DateTime lastPiperReportUtc = DateTime.MinValue;
             var progress = new Progress<(long downloaded, long total)>(p =>
             {
+                var now = DateTime.UtcNow;
+                var isFinal = p.total > 0 && p.downloaded >= p.total;
+                if (!isFinal && now - lastPiperReportUtc < TimeSpan.FromMilliseconds(150)) return;
+                lastPiperReportUtc = now;
                 if (p.total <= 0)
                 {
                     PiperDownloadProgress.IsIndeterminate = true;
