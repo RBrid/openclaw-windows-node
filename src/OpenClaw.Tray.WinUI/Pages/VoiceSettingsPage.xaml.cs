@@ -178,7 +178,7 @@ public sealed partial class VoiceSettingsPage : Page
 
     private async void OnDownloadClick(object sender, RoutedEventArgs e)
     {
-        if (_voiceService == null || _hub?.Settings == null) return;
+        if (_hub?.Settings == null) return;
 
         // Cancel any in-progress Whisper download (only). Piper downloads are
         // independent and keep running.
@@ -205,7 +205,15 @@ public sealed partial class VoiceSettingsPage : Page
                 });
             });
 
-            await _voiceService.DownloadModelAsync(
+            // Download via the model manager directly so the user can fetch
+            // a model even before NodeService has registered the STT
+            // capability (which only happens after Connect / StartLocalOnly
+            // and only when NodeSttEnabled is true). VoiceService still
+            // wraps this same manager when it auto-downloads on first use,
+            // so the on-disk result is identical.
+            var manager = new OpenClaw.Shared.Audio.WhisperModelManager(
+                SettingsManager.SettingsDirectoryPath, new AppLogger());
+            await manager.DownloadModelAsync(
                 _hub.Settings.SttModelName,
                 progress,
                 _whisperDownloadCts.Token);
