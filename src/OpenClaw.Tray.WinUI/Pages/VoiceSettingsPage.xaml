@@ -36,7 +36,7 @@
                     <TextBlock Text="Speech Model" Style="{StaticResource BodyStrongTextBlockStyle}"/>
 
                     <ComboBox x:Name="ModelCombo" Header="Model Size"
-                              SelectionChanged="OnModelChanged" Width="200">
+                              SelectionChanged="OnModelChanged" Width="320">
                         <ComboBoxItem Content="Tiny (~75 MB) — Fast, basic accuracy" Tag="tiny"/>
                         <ComboBoxItem Content="Base (~142 MB) — Good balance" Tag="base"/>
                         <ComboBoxItem Content="Small (~466 MB) — High accuracy" Tag="small"/>
@@ -66,7 +66,7 @@
                     BorderThickness="1" CornerRadius="8" Padding="16">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Language" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                    <ComboBox x:Name="LanguageCombo" Header="STT Language"
+                    <ComboBox x:Name="LanguageCombo"
                               SelectionChanged="OnLanguageChanged" Width="200">
                         <ComboBoxItem Content="Auto-detect" Tag="auto"/>
                         <ComboBoxItem Content="English" Tag="en"/>
@@ -112,13 +112,41 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
 
                     <ComboBox x:Name="TtsProviderCombo" Header="Provider"
-                              SelectionChanged="OnTtsProviderChanged" Width="250">
+                              SelectionChanged="OnTtsProviderChanged" Width="360">
+                        <ComboBoxItem Content="Piper (local neural voices)" Tag="piper"/>
                         <ComboBoxItem Content="Windows (built-in neural voices)" Tag="windows"/>
-                        <ComboBoxItem Content="ElevenLabs (AI voices, requires API key)" Tag="elevenlabs"/>
+                        <ComboBoxItem Content="ElevenLabs (cloud, requires API key)" Tag="elevenlabs"/>
                     </ComboBox>
 
+                    <!-- Piper voice picker (local neural TTS via Sherpa-ONNX) -->
+                    <StackPanel x:Name="PiperVoicePanel" Spacing="8" Visibility="Collapsed">
+                        <ComboBox x:Name="PiperVoiceCombo" Header="Voice"
+                                  SelectionChanged="OnPiperVoiceChanged" Width="400"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="PiperDownloadButton" Click="OnPiperDownloadClick"
+                                    Width="180" MinHeight="32">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon x:Name="PiperDownloadIcon" Glyph="&#xE896;" FontSize="14"/>
+                                    <TextBlock x:Name="PiperDownloadButtonText" Text="Download Voice"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="PiperDeleteButton" Click="OnPiperDeleteClick"
+                                    Content="Delete" Width="80" Visibility="Collapsed"/>
+                            <Button x:Name="PiperPreviewButton" Click="OnPiperPreviewClick"
+                                    Content="▶ Preview" Width="100" Visibility="Collapsed"/>
+                        </StackPanel>
+                        <ProgressBar x:Name="PiperDownloadProgress" Visibility="Collapsed"
+                                     IsIndeterminate="False" Maximum="100" Height="6" Width="400" HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="PiperStatusText"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="Voices download from the sherpa-onnx project's GitHub releases (~25 MB low quality, up to ~150 MB high quality). They run fully on this PC; no audio leaves your device."
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+
                     <!-- Windows voice picker -->
-                    <StackPanel x:Name="WindowsVoicePanel" Spacing="8">
+                    <StackPanel x:Name="WindowsVoicePanel" Spacing="8" Visibility="Collapsed">
                         <ComboBox x:Name="WindowsVoiceCombo" Header="Voice"
                                   SelectionChanged="OnWindowsVoiceChanged" Width="300"/>
                         <Button x:Name="PreviewVoiceButton" Click="OnPreviewVoiceClick"

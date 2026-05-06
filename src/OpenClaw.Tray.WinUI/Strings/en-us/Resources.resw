@@ -2340,7 +2340,7 @@ On your gateway host (Mac/Linux), run:
   </data>
   <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
   <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
-    <value>Recognizes microphone audio. Whisper runs locally on this PC; Windows built-in is the no-download alternative used while Whisper isn&apos;t ready.</value>
+    <value>Recognizes microphone audio locally on this PC using Whisper. The model is downloaded once on first use.</value>
   </data>
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 Speech-to-Text</value>

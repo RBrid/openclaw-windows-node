@@ -477,6 +477,11 @@ public partial class App : Application
                     _ = _gatewayClient.SendChatMessageAsync(text);
                 }
             };
+            // Wire Settings button → open the Hub on the Voice & Audio page.
+            _voiceOverlayWindow.SettingsRequested += () =>
+            {
+                _dispatcherQueue?.TryEnqueue(() => ShowHub("voice"));
+            };
         }
 
         _voiceOverlayWindow.Activate();
@@ -2319,20 +2324,26 @@ public partial class App : Application
             category: "notification",
             details: notification.Message);
 
-        // Voice overlay: show agent chat responses and optionally speak them
-        if (notification.IsChat && _voiceOverlayWindow != null && !string.IsNullOrEmpty(notification.Message))
+        // Voice overlay: show agent chat responses, and (independently) speak them
+        // if the user enabled "Read responses aloud". TTS used to be gated on
+        // an active voice overlay session — we want the toggle to honor every
+        // chat reply now that voice and text chat will eventually share one UI.
+        if (notification.IsChat && !string.IsNullOrEmpty(notification.Message))
         {
-            _dispatcherQueue?.TryEnqueue(() =>
+            if (_voiceOverlayWindow != null)
             {
-                try
+                _dispatcherQueue?.TryEnqueue(() =>
                 {
-                    _voiceOverlayWindow?.AddAgentResponse(notification.Message);
-                }
-                catch { }
-            });
+                    try
+                    {
+                        _voiceOverlayWindow?.AddAgentResponse(notification.Message);
+                    }
+                    catch { }
+                });
+            }
 
-            // TTS: read response aloud if voice is active and TTS enabled
-            if (_settings?.VoiceTtsEnabled == true && _nodeService?.VoiceService?.CurrentMode != VoiceMode.Inactive)
+            // TTS: read response aloud whenever the toggle is on (any chat surface).
+            if (_settings?.VoiceTtsEnabled == true)
             {
                 _ = SpeakResponseAsync(notification.Message);
             }
@@ -3929,7 +3940,7 @@ public partial class App : Application
             var speakArgs = new OpenClaw.Shared.Capabilities.TtsSpeakArgs
             {
                 Text = speakText,
-                Provider = _settings.TtsProvider ?? "windows",
+                Provider = _settings.TtsProvider ?? TtsCapability.PiperProvider,
                 VoiceId = _settings.TtsElevenLabsVoiceId,
                 Interrupt = true
             };

@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using OpenClaw.Shared;
+using OpenClaw.Shared.Capabilities;
 using OpenClawTray.Services;
 using OpenClawTray.Windows;
 using System;
@@ -19,6 +20,15 @@ public sealed partial class VoiceSettingsPage : Page
     public VoiceSettingsPage()
     {
         InitializeComponent();
+        // Refresh model + voice status every time the page becomes visible so
+        // file-state changes (e.g. a silent Whisper auto-download triggered by
+        // the Voice Overlay, or a Piper voice downloaded in another window)
+        // propagate without forcing the user to renavigate.
+        Loaded += (_, _) =>
+        {
+            UpdateModelStatus();
+            UpdatePiperVoiceState();
+        };
     }
 
     public void Initialize(HubWindow hub, VoiceService? voiceService)
@@ -79,10 +89,21 @@ public sealed partial class VoiceSettingsPage : Page
 
     private void UpdateModelStatus()
     {
-        if (_voiceService == null || _hub?.Settings == null) return;
+        // Determine the selected model. Prefer settings; fall back to the
+        // ModelCombo selection if settings haven't been wired yet so the
+        // status reflects what's on disk even before Initialize completes.
+        var modelName = _hub?.Settings?.SttModelName
+            ?? (ModelCombo?.SelectedItem as ComboBoxItem)?.Tag?.ToString()
+            ?? "base";
 
-        var modelName = _hub.Settings.SttModelName;
-        if (_voiceService.CheckModelDownloaded(modelName))
+        // Check the file directly via WhisperModelManager rather than going
+        // through VoiceService — _voiceService can be null if the user reaches
+        // this page before NodeService finishes wiring it, and we still want
+        // accurate status.
+        var manager = new OpenClaw.Shared.Audio.WhisperModelManager(
+            SettingsManager.SettingsDirectoryPath, new AppLogger());
+
+        if (manager.IsModelDownloaded(modelName))
         {
             ModelStatusText.Text = "✅ Model ready";
             DownloadButtonText.Text = "Re-download";
@@ -219,7 +240,10 @@ public sealed partial class VoiceSettingsPage : Page
             }
         }
         if (TtsProviderCombo.SelectedIndex < 0)
-            TtsProviderCombo.SelectedIndex = 0;
+            TtsProviderCombo.SelectedIndex = 0;  // default to Piper
+
+        // Piper voice catalog
+        PopulatePiperVoices(settings);
 
         // Windows voices
         PopulateWindowsVoices(settings);
@@ -230,6 +254,175 @@ public sealed partial class VoiceSettingsPage : Page
         ElevenLabsModelBox.Text = settings.TtsElevenLabsModel ?? "";
 
         UpdateTtsProviderVisibility();
+        UpdatePiperVoiceState();
+    }
+
+    private void PopulatePiperVoices(SettingsManager settings)
+    {
+        PiperVoiceCombo.Items.Clear();
+        var selected = string.IsNullOrWhiteSpace(settings.TtsPiperVoiceId)
+            ? "en_US-amy-low"
+            : settings.TtsPiperVoiceId;
+        int selectedIdx = 0;
+
+        foreach (var v in OpenClaw.Shared.Audio.PiperVoiceManager.AvailableVoices)
+        {
+            var item = new ComboBoxItem { Content = v.DisplayName, Tag = v.VoiceId };
+            PiperVoiceCombo.Items.Add(item);
+            if (string.Equals(v.VoiceId, selected, StringComparison.OrdinalIgnoreCase))
+                selectedIdx = PiperVoiceCombo.Items.Count - 1;
+        }
+
+        if (PiperVoiceCombo.Items.Count > 0)
+            PiperVoiceCombo.SelectedIndex = selectedIdx;
+    }
+
+    private void OnPiperVoiceChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressEvents || _hub?.Settings == null) return;
+        if (PiperVoiceCombo.SelectedItem is ComboBoxItem item && item.Tag is string voiceId)
+        {
+            _hub.Settings.TtsPiperVoiceId = voiceId;
+            _hub.Settings.Save();
+        }
+        UpdatePiperVoiceState();
+    }
+
+    /// <summary>
+    /// Refresh the Piper download/delete/preview buttons + status text based
+    /// on whether the currently-selected voice is on disk. Pure UI; touches
+    /// the file system once via PiperVoiceManager.IsVoiceDownloaded.
+    /// </summary>
+    private void UpdatePiperVoiceState()
+    {
+        if (_hub?.Settings == null) return;
+        if (PiperVoiceCombo.SelectedItem is not ComboBoxItem item || item.Tag is not string voiceId)
+            return;
+
+        var voices = new OpenClaw.Shared.Audio.PiperVoiceManager(SettingsManager.SettingsDirectoryPath, new AppLogger());
+        var downloaded = voices.IsVoiceDownloaded(voiceId);
+
+        PiperDownloadButton.IsEnabled = !downloaded;
+        PiperDownloadButtonText.Text = downloaded ? "Downloaded" : "Download Voice";
+        PiperDownloadIcon.Glyph = downloaded ? "\uE73E" : "\uE896";  // checkmark vs download arrow
+        PiperDeleteButton.Visibility = downloaded ? Visibility.Visible : Visibility.Collapsed;
+        PiperPreviewButton.Visibility = downloaded ? Visibility.Visible : Visibility.Collapsed;
+
+        if (downloaded)
+        {
+            var sizeMb = voices.GetVoiceSize(voiceId) / (1024d * 1024d);
+            PiperStatusText.Text = $"Voice ready on this PC ({sizeMb:F1} MB).";
+        }
+        else
+        {
+            PiperStatusText.Text = "Voice not downloaded yet. Click Download to fetch the model (~25–150 MB depending on quality).";
+        }
+        PiperDownloadProgress.Visibility = Visibility.Collapsed;
+    }
+
+    private async void OnPiperDownloadClick(object sender, RoutedEventArgs e)
+    {
+        if (_hub?.Settings == null) return;
+        if (PiperVoiceCombo.SelectedItem is not ComboBoxItem item || item.Tag is not string voiceId) return;
+
+        // Cancel any prior download (Whisper or Piper) before starting.
+        try { _downloadCts?.Cancel(); } catch { /* swallow */ }
+        _downloadCts = new CancellationTokenSource();
+        var ct = _downloadCts.Token;
+
+        PiperDownloadButton.IsEnabled = false;
+        PiperDownloadButtonText.Text = "Downloading…";
+        PiperDownloadProgress.Visibility = Visibility.Visible;
+        PiperDownloadProgress.Value = 0;
+        PiperStatusText.Text = "Connecting to sherpa-onnx releases…";
+
+        try
+        {
+            var voices = new OpenClaw.Shared.Audio.PiperVoiceManager(SettingsManager.SettingsDirectoryPath, new AppLogger());
+            var progress = new Progress<(long downloaded, long total)>(p =>
+            {
+                if (p.total <= 0)
+                {
+                    PiperDownloadProgress.IsIndeterminate = true;
+                    PiperStatusText.Text = $"Downloading… {p.downloaded / (1024 * 1024)} MB so far";
+                }
+                else
+                {
+                    PiperDownloadProgress.IsIndeterminate = false;
+                    PiperDownloadProgress.Value = (double)p.downloaded * 100 / p.total;
+                    PiperStatusText.Text = $"Downloading… {p.downloaded / (1024d * 1024d):F1} / {p.total / (1024d * 1024d):F1} MB";
+                }
+            });
+
+            await voices.DownloadVoiceAsync(voiceId, progress, ct);
+            PiperStatusText.Text = "Download complete. Extracting…";
+            // DownloadVoiceAsync extracts inline before returning, so by the
+            // time we get here the voice is fully on disk.
+            UpdatePiperVoiceState();
+        }
+        catch (OperationCanceledException)
+        {
+            PiperStatusText.Text = "Download canceled.";
+            UpdatePiperVoiceState();
+        }
+        catch (Exception ex)
+        {
+            // The Logger captured full detail; surface a short user-facing
+            // message without leaking the URL or stack frame.
+            PiperStatusText.Text = $"Download failed: {ex.Message}";
+            PiperDownloadButton.IsEnabled = true;
+            PiperDownloadButtonText.Text = "Retry Download";
+            PiperDownloadProgress.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void OnPiperDeleteClick(object sender, RoutedEventArgs e)
+    {
+        if (_hub?.Settings == null) return;
+        if (PiperVoiceCombo.SelectedItem is not ComboBoxItem item || item.Tag is not string voiceId) return;
+
+        try
+        {
+            var voices = new OpenClaw.Shared.Audio.PiperVoiceManager(SettingsManager.SettingsDirectoryPath, new AppLogger());
+            voices.DeleteVoice(voiceId);
+            PiperStatusText.Text = "Voice deleted.";
+            UpdatePiperVoiceState();
+        }
+        catch (Exception ex)
+        {
+            PiperStatusText.Text = $"Delete failed: {ex.Message}";
+        }
+    }
+
+    private async void OnPiperPreviewClick(object sender, RoutedEventArgs e)
+    {
+        if (_hub?.Settings == null) return;
+        if (PiperVoiceCombo.SelectedItem is not ComboBoxItem item || item.Tag is not string voiceId) return;
+
+        PiperPreviewButton.IsEnabled = false;
+        var oldContent = PiperPreviewButton.Content;
+        PiperPreviewButton.Content = "▶ Playing…";
+
+        try
+        {
+            using var tts = new TextToSpeechService(new AppLogger(), _hub.Settings);
+            await tts.SpeakAsync(new OpenClaw.Shared.Capabilities.TtsSpeakArgs
+            {
+                Text = "Hello! This is a Piper voice running locally on your PC.",
+                Provider = OpenClaw.Shared.Capabilities.TtsCapability.PiperProvider,
+                VoiceId = voiceId,
+                Interrupt = true
+            });
+        }
+        catch (Exception ex)
+        {
+            PiperStatusText.Text = $"Preview failed: {ex.Message}";
+        }
+        finally
+        {
+            PiperPreviewButton.IsEnabled = true;
+            PiperPreviewButton.Content = oldContent;
+        }
     }
 
     private void PopulateWindowsVoices(SettingsManager settings)
@@ -267,10 +460,13 @@ public sealed partial class VoiceSettingsPage : Page
 
     private void UpdateTtsProviderVisibility()
     {
-        var isElevenLabs = TtsProviderCombo.SelectedItem is ComboBoxItem item &&
-            string.Equals(item.Tag?.ToString(), "elevenlabs", StringComparison.OrdinalIgnoreCase);
+        var providerTag = (TtsProviderCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? TtsCapability.PiperProvider;
+        var isPiper = string.Equals(providerTag, "piper", StringComparison.OrdinalIgnoreCase);
+        var isElevenLabs = string.Equals(providerTag, "elevenlabs", StringComparison.OrdinalIgnoreCase);
+        var isWindows = !isPiper && !isElevenLabs;
 
-        WindowsVoicePanel.Visibility = isElevenLabs ? Visibility.Collapsed : Visibility.Visible;
+        PiperVoicePanel.Visibility = isPiper ? Visibility.Visible : Visibility.Collapsed;
+        WindowsVoicePanel.Visibility = isWindows ? Visibility.Visible : Visibility.Collapsed;
         ElevenLabsPanel.Visibility = isElevenLabs ? Visibility.Visible : Visibility.Collapsed;
     }
 

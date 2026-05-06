@@ -161,7 +161,7 @@ public class SettingsRoundTripTests
         Assert.False(settings.NodeSttEnabled);
         Assert.Equal("auto", settings.SttLanguage);
         Assert.False(settings.NodeTtsEnabled);
-        Assert.Equal("windows", settings.TtsProvider);
+        Assert.Equal("piper", settings.TtsProvider);
         Assert.Null(settings.TtsElevenLabsApiKey);
         Assert.Null(settings.TtsElevenLabsModel);
         Assert.Null(settings.TtsElevenLabsVoiceId);
@@ -217,7 +217,7 @@ public class SettingsRoundTripTests
         Assert.False(settings.NodeSttEnabled);
         Assert.Equal("auto", settings.SttLanguage);
         Assert.False(settings.NodeTtsEnabled);
-        Assert.Equal("windows", settings.TtsProvider);
+        Assert.Equal("piper", settings.TtsProvider);
         Assert.Null(settings.TtsElevenLabsApiKey);
         Assert.Null(settings.TtsElevenLabsModel);
         Assert.Null(settings.TtsElevenLabsVoiceId);

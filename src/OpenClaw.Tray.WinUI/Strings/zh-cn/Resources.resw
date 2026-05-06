@@ -2273,7 +2273,7 @@
   </data>
   <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
   <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
-    <value>识别麦克风音频。Whisper 在本机本地运行；Windows 内置语音是免下载的替代方案，在 Whisper 未就绪时使用。</value>
+    <value>使用 Whisper 在本机本地识别麦克风音频。模型在首次使用时下载一次。</value>
   </data>
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 语音转文字</value>

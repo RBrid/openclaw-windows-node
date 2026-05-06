@@ -25,6 +25,10 @@ public sealed partial class VoiceOverlayWindow : WindowEx
     /// <summary>Fired when the user submits transcribed text to the agent.</summary>
     public event Action<string>? TextSubmitted;
 
+    /// <summary>Fired when the user clicks the Settings button. Hosts should
+    /// navigate to the Voice & Audio page (e.g. via <c>ShowHub("voice")</c>).</summary>
+    public event Action? SettingsRequested;
+
     public VoiceOverlayWindow(VoiceService voiceService, IOpenClawLogger logger)
     {
         InitializeComponent();
@@ -295,8 +299,7 @@ public sealed partial class VoiceOverlayWindow : WindowEx
 
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
-        // Navigate to voice settings via deep link
-        // This will be handled by the deep link system
+        SettingsRequested?.Invoke();
     }
 
     private void WindowClosed(object sender, WindowEventArgs args)

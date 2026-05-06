@@ -35,7 +35,7 @@ public sealed class TtsCapability : NodeCapabilityBase
             : requestedProvider;
 
         return string.IsNullOrWhiteSpace(provider)
-            ? WindowsProvider
+            ? PiperProvider
             : provider.Trim().ToLowerInvariant();
     }
 

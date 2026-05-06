@@ -2273,7 +2273,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   </data>
   <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
   <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
-    <value>Reconnaît l&apos;audio du microphone. Whisper s&apos;exécute localement sur ce PC ; le moteur intégré Windows est l&apos;alternative sans téléchargement utilisée tant que Whisper n&apos;est pas prêt.</value>
+    <value>Reconnaît l&apos;audio du microphone localement sur ce PC à l&apos;aide de Whisper. Le modèle est téléchargé une seule fois lors de la première utilisation.</value>
   </data>
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 Reconnaissance vocale</value>

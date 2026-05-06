@@ -46,7 +46,7 @@ public class SettingsData
     /// <summary>Play audio feedback chimes on listen start/stop.</summary>
     public bool VoiceAudioFeedback { get; set; } = true;
     public bool NodeTtsEnabled { get; set; } = false;
-    public string TtsProvider { get; set; } = "windows";
+    public string TtsProvider { get; set; } = OpenClaw.Shared.Capabilities.TtsCapability.PiperProvider;
     /// <summary>
     /// ElevenLabs API key storage slot. When persisted by the Windows tray's
     /// SettingsManager this is an opaque dpapi:-prefixed blob, not plaintext.

@@ -2273,7 +2273,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   </data>
   <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
   <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
-    <value>Herkent microfoonaudio. Whisper draait lokaal op deze PC; ingebouwde Windows-spraak is het alternatief zonder download dat wordt gebruikt zolang Whisper niet gereed is.</value>
+    <value>Herkent microfoonaudio lokaal op deze pc met Whisper. Het model wordt &#233;&#233;n keer gedownload bij het eerste gebruik.</value>
   </data>
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 Spraak-naar-tekst</value>

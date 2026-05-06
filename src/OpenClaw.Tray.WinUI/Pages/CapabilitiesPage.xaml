@@ -33,7 +33,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock x:Uid="CapabilitiesPage_SttCardHeader" Text="🎤 Speech-to-Text" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                     <TextBlock x:Uid="CapabilitiesPage_SttCardDescription"
-                               Text="Recognizes microphone audio locally on this PC using Whisper. The model must be downloaded once before STT can be used."
+                               Text="Recognizes microphone audio locally on this PC using Whisper. The model is downloaded once on first use."
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                     <TextBlock x:Name="SttEngineHint"

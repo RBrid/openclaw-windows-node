@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using OpenClaw.Shared;
+using OpenClaw.Shared.Capabilities;
 
 namespace OpenClawTray.Services;
 
@@ -77,7 +78,7 @@ public class SettingsManager
     /// <summary>Play audio feedback chimes on listen start/stop.</summary>
     public bool VoiceAudioFeedback { get; set; } = true;
     public bool NodeTtsEnabled { get; set; } = false;
-    public string TtsProvider { get; set; } = "windows";
+    public string TtsProvider { get; set; } = TtsCapability.PiperProvider;
     public string TtsElevenLabsApiKey { get; set; } = "";
     public string TtsElevenLabsModel { get; set; } = "";
     public string TtsElevenLabsVoiceId { get; set; } = "";

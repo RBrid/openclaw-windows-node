@@ -119,6 +119,7 @@ public sealed class VoiceService : IAsyncDisposable
             if (vadPath == null)
             {
                 // Auto-download Silero VAD model
+                DiagnosticMessage?.Invoke("Downloading voice activity model…");
                 vadPath = await DownloadVadModelAsync(cancellationToken);
             }
             if (vadPath != null)
@@ -136,7 +137,9 @@ public sealed class VoiceService : IAsyncDisposable
         if (!_modelManager.IsModelDownloaded(modelName))
         {
             _logger.Info($"Downloading Whisper model '{modelName}'...");
+            DiagnosticMessage?.Invoke($"Downloading Whisper '{modelName}' model on first use (~one-time, ~140 MB)…");
             await _modelManager.DownloadModelAsync(modelName, downloadProgress, cancellationToken);
+            DiagnosticMessage?.Invoke("Whisper model downloaded. Loading…");
         }
 
         // Load Whisper model

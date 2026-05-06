@@ -2583,8 +2583,8 @@ public class TtsCapabilityTests
     [InlineData(" ELEVENLABS ", "windows", "elevenlabs")]
     [InlineData(null, "elevenlabs", "elevenlabs")]
     [InlineData("   ", "elevenlabs", "elevenlabs")]
-    [InlineData(null, "", "windows")]
-    [InlineData(null, "   ", "windows")]
+    [InlineData(null, "", "piper")]
+    [InlineData(null, "   ", "piper")]
     public void ResolveProvider_NormalizesRequestedAndConfiguredValues(
         string? requestedProvider,
         string? configuredProvider,
