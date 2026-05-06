@@ -45,24 +45,36 @@ public sealed class PiperVoiceManager
     /// Curated catalog of Piper voices we offer in the UI. Each entry is
     /// a sherpa-onnx pre-packaged tarball from the project's GitHub
     /// releases. To add a voice: pick its key from
-    /// https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models and
-    /// drop it in here. Sizes are post-extraction (compressed is roughly
-    /// half).
+    /// https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models,
+    /// download the tarball, compute its SHA-256, and pin it below.
+    /// Sizes shown in the UI are approximate compressed sizes.
+    ///
+    /// SECURITY — pinned SHA-256 hashes (lowercase hex) verified against
+    /// the sherpa-onnx GitHub release on 2026-05-05. Downloads with a
+    /// different hash are rejected and the partial tarball is deleted.
+    /// Before any public release: re-verify each hash from an independent
+    /// source and document provenance in Audio_FollowUps.md §2.
     /// </summary>
     public static readonly PiperVoiceInfo[] AvailableVoices =
     [
         new("en_US-amy-low",     "English (US) — Amy (low quality, fast)",   "en-US",
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-amy-low.tar.bz2"),
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-amy-low.tar.bz2",
+            "c70f5284a09a7fd4ed203b39b2ff51cac1432b422b852eb647b481dade3cf639"),
         new("en_US-libritts-high","English (US) — LibriTTS (high quality)",  "en-US",
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts-high.tar.bz2"),
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts-high.tar.bz2",
+            "d9d35056703fd38ed38e95c202a50f603fefdc8a92a7b6332c4f1a41616eac72"),
         new("en_GB-alan-low",    "English (GB) — Alan (low quality, fast)",  "en-GB",
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alan-low.tar.bz2"),
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alan-low.tar.bz2",
+            "1308e730b7a12c3b64b669d65daa0138fcb83b1a086edee92fa9fa68cb0290dd"),
         new("fr_FR-siwis-low",   "Français (FR) — Siwis (low quality, fast)","fr-FR",
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-low.tar.bz2"),
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-low.tar.bz2",
+            "3d69170c160c8375c4123901a72a3845222b39456d39ab74f5bbd7310952b5af"),
         new("de_DE-thorsten-low","Deutsch (DE) — Thorsten (low quality)",    "de-DE",
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-low.tar.bz2"),
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-low.tar.bz2",
+            "41fab35910fdcec4696b031951d8fd6c262e594cf77b35e1068fadbeb5a091a6"),
         new("zh_CN-huayan-medium","中文 (CN) — Huayan (medium quality)",      "zh-CN",
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-zh_CN-huayan-medium.tar.bz2"),
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-zh_CN-huayan-medium.tar.bz2",
+            "dbdfec42b91d9cee31cce9ff4b3e9c305eb6fbf60546d071f7e46273554cce6b"),
     ];
 
     public PiperVoiceManager(string dataDirectory, IOpenClawLogger logger)
@@ -157,6 +169,15 @@ public sealed class PiperVoiceManager
         IProgress<(long downloaded, long total)>? progress,
         CancellationToken cancellationToken)
     {
+        // SECURITY: refuse to install any voice that doesn't have a pinned
+        // hash. See Audio_FollowUps.md §2.
+        if (string.IsNullOrWhiteSpace(info.Sha256))
+        {
+            throw new InvalidOperationException(
+                $"Piper voice '{info.VoiceId}' has no pinned SHA-256; refusing to download. " +
+                "Add a verified hash to AvailableVoices before enabling this voice.");
+        }
+
         var voiceDir = Path.Combine(_voicesDirectory, info.VoiceId);
         Directory.CreateDirectory(voiceDir);
         var tarballPath = Path.Combine(voiceDir, $"{info.VoiceId}.tar.bz2.tmp");
@@ -184,6 +205,14 @@ public sealed class PiperVoiceManager
                 }
             }
 
+            // SECURITY: verify SHA-256 of the downloaded tarball BEFORE we
+            // hand it to the extractor. tar reads file contents to disk; an
+            // attacker-controlled tarball could plant arbitrary files (path
+            // traversal aside, the .onnx model itself is loaded into the
+            // process). Fail closed on mismatch — partial dir cleanup runs
+            // in the catch block below.
+            await VerifyHashAsync(tarballPath, info.Sha256, info.VoiceId, cancellationToken);
+
             _logger.Info($"Extracting Piper voice '{info.VoiceId}'");
             ExtractTarBz2(tarballPath, voiceDir, cancellationToken);
 
@@ -195,7 +224,7 @@ public sealed class PiperVoiceManager
                     $"Extraction of Piper voice '{info.VoiceId}' did not produce the expected layout.");
             }
 
-            _logger.Info($"Piper voice '{info.VoiceId}' ready at {voiceDir}");
+            _logger.Info($"Piper voice '{info.VoiceId}' verified and ready at {voiceDir}");
         }
         catch
         {
@@ -208,6 +237,25 @@ public sealed class PiperVoiceManager
         finally
         {
             try { if (File.Exists(tarballPath)) File.Delete(tarballPath); } catch { /* swallow */ }
+        }
+    }
+
+    /// <summary>
+    /// Compute SHA-256 of <paramref name="filePath"/> and compare to
+    /// <paramref name="expectedHex"/>. Throws on mismatch (caller is
+    /// expected to delete the file). Does not echo the actual hash to
+    /// avoid handing attackers a confirmation oracle.
+    /// </summary>
+    private static async Task VerifyHashAsync(string filePath, string expectedHex, string assetName, CancellationToken cancellationToken)
+    {
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+        var actual = await sha.ComputeHashAsync(stream, cancellationToken);
+        var actualHex = Convert.ToHexString(actual).ToLowerInvariant();
+        if (!string.Equals(actualHex, expectedHex, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new System.Security.SecurityException(
+                $"Piper voice '{assetName}' failed integrity check. The downloaded tarball does not match the pinned SHA-256.");
         }
     }
 
@@ -335,8 +383,17 @@ public sealed class PiperVoiceManager
 }
 
 /// <summary>Metadata about a Piper voice variant.</summary>
+/// <param name="VoiceId">Short id, e.g. "en_US-amy-low".</param>
+/// <param name="DisplayName">Human-readable label for UI.</param>
+/// <param name="LanguageTag">BCP-47 tag.</param>
+/// <param name="DownloadUrl">HTTPS URL of the .tar.bz2.</param>
+/// <param name="Sha256">Pinned lowercase hex SHA-256 of the downloaded
+/// tarball. MUST be set; downloads are refused when null. See the catalog
+/// for the "verified on" date — these need re-verification before any
+/// public release (see Audio_FollowUps.md §2).</param>
 public sealed record PiperVoiceInfo(
     string VoiceId,
     string DisplayName,
     string LanguageTag,
-    string DownloadUrl);
+    string DownloadUrl,
+    string? Sha256);
