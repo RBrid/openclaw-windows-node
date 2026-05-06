@@ -106,7 +106,7 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="16">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="🔊 Molty's Voice" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="🔊 Companion Voice" Style="{StaticResource BodyStrongTextBlockStyle}"/>
                     <TextBlock Text="Choose the voice used when reading responses aloud."
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>

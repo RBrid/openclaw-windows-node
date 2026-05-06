@@ -47,6 +47,9 @@ public class SettingsData
     public bool VoiceAudioFeedback { get; set; } = true;
     public bool NodeTtsEnabled { get; set; } = false;
     public string TtsProvider { get; set; } = OpenClaw.Shared.Capabilities.TtsCapability.PiperProvider;
+    /// <summary>Persisted: whether the Hub's NavigationView pane is expanded
+    /// (true) or collapsed/compact (false). Default true.</summary>
+    public bool HubNavPaneOpen { get; set; } = true;
     /// <summary>Optional Windows TTS voice id (or display name). Empty = system default.</summary>
     public string? TtsWindowsVoiceId { get; set; }
     /// <summary>

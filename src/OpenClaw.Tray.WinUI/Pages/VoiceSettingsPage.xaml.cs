@@ -421,7 +421,7 @@ public sealed partial class VoiceSettingsPage : Page
             using var tts = new TextToSpeechService(new AppLogger(), _hub.Settings);
             await tts.SpeakAsync(new OpenClaw.Shared.Capabilities.TtsSpeakArgs
             {
-                Text = "Hello! This is a Piper voice running locally on your PC.",
+                Text = "Hello! This is your Companion speaking.",
                 Provider = OpenClaw.Shared.Capabilities.TtsCapability.PiperProvider,
                 VoiceId = voiceId,
                 Interrupt = true
@@ -520,7 +520,7 @@ public sealed partial class VoiceSettingsPage : Page
             {
                 await tts.SpeakAsync(new OpenClaw.Shared.Capabilities.TtsSpeakArgs
                 {
-                    Text = "Hello! I'm Molty, your voice assistant. How can I help you today?",
+                    Text = "Hello! This is your Companion speaking.",
                     Provider = _hub.Settings.TtsProvider,
                     VoiceId = WindowsVoiceCombo.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() : null,
                     Interrupt = true

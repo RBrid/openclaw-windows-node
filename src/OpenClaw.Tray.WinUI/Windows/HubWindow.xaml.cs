@@ -17,7 +17,22 @@ public sealed partial class HubWindow : WindowEx
     public bool IsClosed { get; private set; }
 
     // Shared state accessible by pages
-    public SettingsManager? Settings { get; set; }
+    private SettingsManager? _settings;
+    public SettingsManager? Settings
+    {
+        get => _settings;
+        set
+        {
+            _settings = value;
+            // Apply persisted nav-pane state. NavView starts with its XAML
+            // default of IsPaneOpen=true; honor the user's last preference
+            // here so they don't re-toggle on every Hub open.
+            if (value != null && NavView != null)
+            {
+                NavView.IsPaneOpen = value.HubNavPaneOpen;
+            }
+        }
+    }
     public OpenClawGatewayClient? GatewayClient { get; set; }
     public ConnectionStatus CurrentStatus { get; set; }
     private string _currentAgentId = "main";
@@ -500,6 +515,23 @@ public sealed partial class HubWindow : WindowEx
                 InitializeCurrentPage();
             }
         }
+    }
+
+    /// <summary>
+    /// Persist the NavigationView's expanded/compact state on every toggle.
+    /// Both PaneOpening and PaneClosing route here; we read the current
+    /// state from the sender so we don't have to distinguish the two.
+    /// </summary>
+    private void OnNavPaneStateChanged(NavigationView sender, object args)
+    {
+        if (_settings == null) return;
+        // PaneOpening fires BEFORE IsPaneOpen flips, PaneClosing fires
+        // BEFORE it flips the other way. Use the event identity to know
+        // the new state rather than reading IsPaneOpen.
+        var newState = args is NavigationViewPaneClosingEventArgs ? false : true;
+        if (_settings.HubNavPaneOpen == newState) return;
+        _settings.HubNavPaneOpen = newState;
+        try { _settings.Save(); } catch { /* swallow — don't block UI */ }
     }
 
     private void InitializeCurrentPage()

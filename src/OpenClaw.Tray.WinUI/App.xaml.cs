@@ -489,7 +489,10 @@ public partial class App : Application
 
     private void OnTrayContextMenu(TrayIcon sender, TrayIconEventArgs e)
     {
-        // Right-click: show menu
+        // Right-click: bring up the companion app AND show the popup menu.
+        // Show the Hub without activating focus so the popup (which is
+        // light-dismiss) stays the foreground window when it appears.
+        try { ShowHub(activate: false); } catch { /* swallow */ }
         ShowTrayMenuPopup();
     }
 
@@ -2550,7 +2553,7 @@ public partial class App : Application
 
     #region Window Management
 
-    private void ShowHub(string? navigateTo = null)
+    private void ShowHub(string? navigateTo = null, bool activate = true)
     {
         if (_hubWindow == null || _hubWindow.IsClosed)
         {
@@ -2623,7 +2626,17 @@ public partial class App : Application
         {
             _hubWindow.NavigateTo(navigateTo);
         }
-        _hubWindow.Activate();
+        if (activate)
+        {
+            _hubWindow.Activate();
+        }
+        else
+        {
+            // Show without stealing focus — used by right-click on the
+            // tray icon where the popup needs to remain the foreground
+            // window (popups light-dismiss if focus moves away).
+            try { _hubWindow.AppWindow.Show(activateWindow: false); } catch { /* swallow */ }
+        }
     }
 
     private void SeedHubCachedData()
