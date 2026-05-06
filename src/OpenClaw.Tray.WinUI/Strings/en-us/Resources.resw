@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -2414,7 +2414,7 @@ On your gateway host (Mac/Linux), run:
     <value>Download canceled</value>
   </data>
   <data name="VoiceSettingsPage_StatusError" xml:space="preserve">
-    <value>❌ {0}</value>
+    <value>❌ Operation failed (see Debug log)</value>
   </data>
   <data name="VoiceSettingsPage_PiperButtonDownloaded" xml:space="preserve">
     <value>Downloaded</value>
@@ -2444,7 +2444,7 @@ On your gateway host (Mac/Linux), run:
     <value>Download canceled.</value>
   </data>
   <data name="VoiceSettingsPage_PiperDownloadFailed" xml:space="preserve">
-    <value>Download failed: {0}</value>
+    <value>Download failed (see Debug log).</value>
   </data>
   <data name="VoiceSettingsPage_PiperButtonRetry" xml:space="preserve">
     <value>Retry Download</value>
@@ -2453,16 +2453,16 @@ On your gateway host (Mac/Linux), run:
     <value>Voice deleted.</value>
   </data>
   <data name="VoiceSettingsPage_PiperDeleteFailed" xml:space="preserve">
-    <value>Delete failed: {0}</value>
+    <value>Delete failed (see Debug log).</value>
   </data>
   <data name="VoiceSettingsPage_CompanionPreviewText" xml:space="preserve">
     <value>Hello! This is your Companion speaking.</value>
   </data>
   <data name="VoiceSettingsPage_PiperPreviewFailed" xml:space="preserve">
-    <value>Preview failed: {0}</value>
+    <value>Preview failed (see Debug log).</value>
   </data>
   <data name="VoiceSettingsPage_VoiceErrorLoading" xml:space="preserve">
-    <value>Error loading voices: {0}</value>
+    <value>Error loading voices (see Debug log).</value>
   </data>
   <data name="VoiceSettingsPage_PreviewButtonPlaying" xml:space="preserve">
     <value>▶ Playing...</value>
@@ -2519,7 +2519,7 @@ On your gateway host (Mac/Linux), run:
     <value>Error</value>
   </data>
   <data name="VoiceOverlayWindow_StatusError" xml:space="preserve">
-    <value>Error: {0}</value>
+    <value>Error encountered (see Debug log)</value>
   </data>
   <data name="VoiceOverlayWindow_StatusMuted" xml:space="preserve">
     <value>Muted</value>

@@ -248,7 +248,11 @@ public sealed partial class VoiceSettingsPage : Page
         }
         catch (Exception ex)
         {
-            ModelStatusText.Text = Lf("VoiceSettingsPage_StatusError", ex.Message);
+            // Privacy: never put ex.Message in the UI — it can carry URLs,
+            // file paths, hash digests, or HTTP body fragments. Log the full
+            // detail; show a generic message.
+            Logger.Error($"Whisper model download failed: {ex}");
+            ModelStatusText.Text = L("VoiceSettingsPage_StatusError");
         }
         finally
         {
@@ -414,8 +418,9 @@ public sealed partial class VoiceSettingsPage : Page
         catch (Exception ex)
         {
             // The Logger captured full detail; surface a short user-facing
-            // message without leaking the URL or stack frame.
-            PiperStatusText.Text = Lf("VoiceSettingsPage_PiperDownloadFailed", ex.Message);
+            // message without leaking the URL, hash, or stack frame.
+            Logger.Error($"Piper voice download failed: {ex}");
+            PiperStatusText.Text = L("VoiceSettingsPage_PiperDownloadFailed");
             PiperDownloadButton.IsEnabled = true;
             PiperDownloadButtonText.Text = L("VoiceSettingsPage_PiperButtonRetry");
             PiperDownloadProgress.Visibility = Visibility.Collapsed;
@@ -436,7 +441,8 @@ public sealed partial class VoiceSettingsPage : Page
         }
         catch (Exception ex)
         {
-            PiperStatusText.Text = Lf("VoiceSettingsPage_PiperDeleteFailed", ex.Message);
+            Logger.Error($"Piper voice delete failed: {ex}");
+            PiperStatusText.Text = L("VoiceSettingsPage_PiperDeleteFailed");
         }
     }
 
@@ -462,7 +468,8 @@ public sealed partial class VoiceSettingsPage : Page
         }
         catch (Exception ex)
         {
-            PiperStatusText.Text = Lf("VoiceSettingsPage_PiperPreviewFailed", ex.Message);
+            Logger.Error($"Piper voice preview failed: {ex}");
+            PiperStatusText.Text = L("VoiceSettingsPage_PiperPreviewFailed");
         }
         finally
         {
@@ -500,7 +507,8 @@ public sealed partial class VoiceSettingsPage : Page
         }
         catch (Exception ex)
         {
-            WindowsVoiceCombo.Items.Add(new ComboBoxItem { Content = Lf("VoiceSettingsPage_VoiceErrorLoading", ex.Message), IsEnabled = false });
+            Logger.Error($"Loading Windows TTS voices failed: {ex}");
+            WindowsVoiceCombo.Items.Add(new ComboBoxItem { Content = L("VoiceSettingsPage_VoiceErrorLoading"), IsEnabled = false });
         }
     }
 
@@ -566,8 +574,9 @@ public sealed partial class VoiceSettingsPage : Page
         }
         catch (Exception ex)
         {
-            // Show error inline
-            PreviewVoiceButton.Content = Lf("VoiceSettingsPage_StatusError", ex.Message);
+            // Show error inline (sanitized — full detail in the log).
+            Logger.Error($"Windows TTS preview failed: {ex}");
+            PreviewVoiceButton.Content = L("VoiceSettingsPage_StatusError");
             await System.Threading.Tasks.Task.Delay(3000);
         }
         finally

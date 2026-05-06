@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -2414,7 +2414,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
     <value>Téléchargement annulé</value>
   </data>
   <data name="VoiceSettingsPage_StatusError" xml:space="preserve">
-    <value>❌ {0}</value>
+    <value>❌ Échec de l'opération (voir le journal Debug)</value>
   </data>
   <data name="VoiceSettingsPage_PiperButtonDownloaded" xml:space="preserve">
     <value>Téléchargé</value>
@@ -2444,7 +2444,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
     <value>Téléchargement annulé.</value>
   </data>
   <data name="VoiceSettingsPage_PiperDownloadFailed" xml:space="preserve">
-    <value>Échec du téléchargement : {0}</value>
+    <value>Échec du téléchargement (voir le journal Debug).</value>
   </data>
   <data name="VoiceSettingsPage_PiperButtonRetry" xml:space="preserve">
     <value>Réessayer le téléchargement</value>
@@ -2453,16 +2453,16 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
     <value>Voix supprimée.</value>
   </data>
   <data name="VoiceSettingsPage_PiperDeleteFailed" xml:space="preserve">
-    <value>Échec de la suppression : {0}</value>
+    <value>Échec de la suppression (voir le journal Debug).</value>
   </data>
   <data name="VoiceSettingsPage_CompanionPreviewText" xml:space="preserve">
     <value>Bonjour ! C'est votre Companion qui parle.</value>
   </data>
   <data name="VoiceSettingsPage_PiperPreviewFailed" xml:space="preserve">
-    <value>Échec de l'aperçu : {0}</value>
+    <value>Échec de l'aperçu (voir le journal Debug).</value>
   </data>
   <data name="VoiceSettingsPage_VoiceErrorLoading" xml:space="preserve">
-    <value>Erreur de chargement des voix : {0}</value>
+    <value>Erreur de chargement des voix (voir le journal Debug).</value>
   </data>
   <data name="VoiceSettingsPage_PreviewButtonPlaying" xml:space="preserve">
     <value>▶ Lecture...</value>
@@ -2519,7 +2519,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
     <value>Erreur</value>
   </data>
   <data name="VoiceOverlayWindow_StatusError" xml:space="preserve">
-    <value>Erreur : {0}</value>
+    <value>Erreur rencontrée (voir le journal Debug)</value>
   </data>
   <data name="VoiceOverlayWindow_StatusMuted" xml:space="preserve">
     <value>Muet</value>

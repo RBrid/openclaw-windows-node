@@ -297,7 +297,8 @@ public sealed partial class VoiceOverlayWindow : WindowEx
         catch (Exception ex)
         {
             _logger.Error("Voice overlay start/stop failed", ex);
-            StatusText.Text = Lf("VoiceOverlayWindow_StatusError", ex.Message);
+            // Sanitized — full ex.Message is in the log.
+            StatusText.Text = L("VoiceOverlayWindow_StatusError");
             StatusBadge.Text = L("VoiceOverlayWindow_StateError");
         }
         finally
