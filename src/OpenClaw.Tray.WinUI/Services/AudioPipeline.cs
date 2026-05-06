@@ -51,6 +51,14 @@ public sealed class AudioPipeline : IAsyncDisposable
     private int _inFlightTranscriptions;
     private const int MaxConcurrentTranscriptions = 2;
 
+    // Fixed-duration capture mode: when set, OnDataAvailable bypasses the
+    // VAD pipeline entirely and just appends every chunk to
+    // _fixedCaptureBuffer for the duration of CaptureFixedDurationAsync.
+    // This gives stt.transcribe a true bounded-window capture (vs.
+    // stt.listen's silence-bounded behavior).
+    private bool _fixedCaptureMode;
+    private readonly List<float> _fixedCaptureBuffer = new();
+
     /// <summary>Fired when a single Whisper segment has been transcribed.
     /// Multiple of these may fire per silence-bounded utterance — useful
     /// for streaming bubble updates. Consumers that want a complete
@@ -153,6 +161,64 @@ public sealed class AudioPipeline : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Capture audio for exactly <paramref name="durationMs"/> milliseconds
+    /// (or until the token is cancelled), then return the entire 16 kHz
+    /// mono float buffer. Bypasses VAD entirely — every sample in the
+    /// window is preserved. Used by stt.transcribe to honor the
+    /// "bounded fixed-duration capture" contract.
+    /// </summary>
+    public async Task<float[]> CaptureFixedDurationAsync(int durationMs, CancellationToken cancellationToken = default)
+    {
+        if (_state != AudioPipelineState.Stopped)
+            throw new InvalidOperationException($"Pipeline is {_state}, must be Stopped to start capture.");
+        if (durationMs <= 0)
+            throw new ArgumentOutOfRangeException(nameof(durationMs), "Duration must be positive.");
+
+        _fixedCaptureMode = true;
+        _fixedCaptureBuffer.Clear();
+        _resampleBuffer.Clear();
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        SetState(AudioPipelineState.Starting);
+        try
+        {
+            await Task.Run(() =>
+            {
+                _capture = new WasapiCapture();
+                _captureFormat = _capture.WaveFormat;
+                _capture.DataAvailable += OnDataAvailable;
+                _capture.RecordingStopped += OnRecordingStopped;
+                _capture.StartRecording();
+            });
+
+            SetState(AudioPipelineState.Listening);
+            try { DiagnosticMessage?.Invoke($"Recording {durationMs / 1000.0:F1}s..."); } catch { }
+
+            try
+            {
+                await Task.Delay(durationMs, _cts.Token).ConfigureAwait(false);
+            }
+            catch (TaskCanceledException)
+            {
+                // External cancellation: return whatever we have so far.
+            }
+
+            // Stop capture and give NAudio a moment to flush its last buffer.
+            try { _capture?.StopRecording(); } catch { /* swallow */ }
+            await Task.Delay(150).ConfigureAwait(false);
+
+            return _fixedCaptureBuffer.ToArray();
+        }
+        finally
+        {
+            _fixedCaptureMode = false;
+            _fixedCaptureBuffer.Clear();
+            CleanupCapture();
+            SetState(AudioPipelineState.Stopped);
+        }
+    }
+
     /// <summary>Stop capturing and processing.</summary>
     public async Task StopAsync()
     {
@@ -215,6 +281,15 @@ public sealed class AudioPipeline : IAsyncDisposable
                     sumSquares += resampled[i] * resampled[i];
                 var rms = MathF.Sqrt(sumSquares / resampled.Length);
                 AudioLevelChanged?.Invoke(Math.Clamp(rms * 3f, 0f, 1f));
+            }
+
+            // Fixed-duration capture mode: skip VAD entirely; we want every
+            // sample for the full window. CaptureFixedDurationAsync drains
+            // the buffer when the timer fires.
+            if (_fixedCaptureMode)
+            {
+                _fixedCaptureBuffer.AddRange(resampled);
+                return;
             }
 
             _resampleBuffer.AddRange(resampled);

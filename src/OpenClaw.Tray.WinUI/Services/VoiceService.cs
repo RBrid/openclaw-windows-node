@@ -349,6 +349,65 @@ public sealed class VoiceService : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Handle a fixed-duration <c>stt.transcribe</c> request. Captures
+    /// audio for exactly <c>args.MaxDurationMs</c> milliseconds (no
+    /// VAD-based early termination), then transcribes the entire
+    /// captured window. Use this for "record N ms and tell me what's in
+    /// it" callers; use <see cref="ListenOnceAsync"/> for "listen until
+    /// the user stops speaking" callers.
+    /// </summary>
+    public async Task<SttTranscribeResult> TranscribeFixedDurationAsync(
+        SttTranscribeArgs args,
+        CancellationToken cancellationToken)
+    {
+        if (args == null) throw new ArgumentNullException(nameof(args));
+        if (args.MaxDurationMs <= 0)
+            throw new ArgumentOutOfRangeException(nameof(args), "maxDurationMs must be positive.");
+
+        await EnsureInitializedAsync();
+
+        var pipeline = new AudioPipeline(_logger, _stt, _vad);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var samples = await pipeline.CaptureFixedDurationAsync(args.MaxDurationMs, cancellationToken).ConfigureAwait(false);
+            var captureMs = (int)sw.ElapsedMilliseconds;
+
+            if (samples.Length == 0)
+            {
+                return new SttTranscribeResult
+                {
+                    Transcribed = false,
+                    Text = "",
+                    DurationMs = captureMs,
+                    Language = args.Language ?? "auto",
+                    EngineEffective = SttCapability.EngineWhisper
+                };
+            }
+
+            var lang = !string.IsNullOrWhiteSpace(args.Language)
+                ? args.Language!
+                : _settings.SttLanguage ?? "auto";
+
+            var results = await _stt.TranscribeAsync(samples, lang, cancellationToken).ConfigureAwait(false);
+            var text = string.Join(" ", results.Select(r => r.Text)).Trim();
+
+            return new SttTranscribeResult
+            {
+                Transcribed = !string.IsNullOrEmpty(text),
+                Text = text,
+                DurationMs = (int)sw.ElapsedMilliseconds,
+                Language = results.Count > 0 ? results[0].Language : lang,
+                EngineEffective = SttCapability.EngineWhisper
+            };
+        }
+        finally
+        {
+            await pipeline.DisposeAsync();
+        }
+    }
+
     // GetStatusAsync was previously tied to the old SttStatusResult shape
     // (ModelLoaded / ModelName / IsListening). The unified status now lives
     // in NodeService.OnSttStatusAsync, which probes both engines and reports

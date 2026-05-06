@@ -1370,24 +1370,19 @@ public sealed class NodeService : IDisposable
         if (!_voiceService.IsWhisperReady)
             throw new InvalidOperationException("Whisper model not downloaded");
 
-        // VoiceService produces SttListenResult; we adapt it to TranscribeResult
-        // by treating maxDurationMs as the upper bound on capture time.
-        var listenArgs = new SttListenArgs
+        // True fixed-duration capture (no VAD-based early termination) so
+        // the contract advertised by skill.md / McpToolBridge holds: callers
+        // get exactly maxDurationMs of audio, transcribed in full. For
+        // "stop when the user pauses" semantics, callers should use
+        // stt.listen instead.
+        var transcribeArgs = new SttTranscribeArgs
         {
-            TimeoutMs = args.MaxDurationMs,
+            MaxDurationMs = args.MaxDurationMs,
             Language = !string.IsNullOrWhiteSpace(args.Language)
                 ? args.Language!
                 : ResolveListenLanguage(_settings?.SttLanguage)
         };
-        var listenResult = await _voiceService.ListenOnceAsync(listenArgs, cancellationToken).ConfigureAwait(false);
-        return new SttTranscribeResult
-        {
-            Transcribed = !string.IsNullOrEmpty(listenResult.Text),
-            Text = listenResult.Text,
-            DurationMs = listenResult.DurationMs,
-            Language = listenResult.Language,
-            EngineEffective = SttCapability.EngineWhisper
-        };
+        return await _voiceService.TranscribeFixedDurationAsync(transcribeArgs, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<SttListenResult> OnSttListenAsync(
