@@ -1,26 +1,26 @@
-<?xml version="1.0" encoding="utf-8"?>
-<root>
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:element name="root" msdata:IsDataSet="true">
-      <xsd:complexType>
-        <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="data">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
-        </xsd:choice>
-      </xsd:complexType>
-    </xsd:element>
-  </xsd:schema>
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+      <xs:complexType>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element name="data">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" ns1:Ordinal="1" />
+                <xs:element name="comment" type="xsd:string" minOccurs="0" ns1:Ordinal="2" />
+              </xs:sequence>
+              <xs:attribute name="name" type="xsd:string" use="required" />
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
 
-  <!-- ==================== SettingsWindow.xaml ==================== -->
+  
 
-  <!-- Section headers -->
+  
   <data name="SettingsConnectionHeader.Text" xml:space="preserve">
     <value>CONNECTION</value>
   </data>
@@ -34,7 +34,7 @@
     <value>ADVANCED (EXPERIMENTAL)</value>
   </data>
 
-  <!-- TextBox headers and placeholders -->
+  
   <data name="SettingsGatewayUrlTextBox.Header" xml:space="preserve">
     <value>Gateway URL</value>
   </data>
@@ -48,7 +48,7 @@
     <value>Your API token</value>
   </data>
 
-  <!-- Toggle headers -->
+  
   <data name="SettingsAutoStartToggle.Header" xml:space="preserve">
     <value>Start automatically with Windows</value>
   </data>
@@ -62,7 +62,7 @@
     <value>Enable Node Mode</value>
   </data>
 
-  <!-- ComboBox -->
+  
   <data name="SettingsSoundComboBox.Header" xml:space="preserve">
     <value>Sound</value>
   </data>
@@ -76,7 +76,7 @@
     <value>Subtle</value>
   </data>
 
-  <!-- Notification filter labels -->
+  
   <data name="SettingsNotifyForLabel.Text" xml:space="preserve">
     <value>Show notifications for:</value>
   </data>
@@ -84,7 +84,7 @@
     <value>Filters by keywords in the message (e.g., 'email', 'reminder')</value>
   </data>
 
-  <!-- Notification filter checkboxes -->
+  
   <data name="SettingsNotifyHealthCb.Content" xml:space="preserve">
     <value>Health alerts</value>
   </data>
@@ -110,7 +110,7 @@
     <value>Info messages</value>
   </data>
 
-  <!-- Buttons -->
+  
   <data name="SettingsTestConnectionButton.Content" xml:space="preserve">
     <value>Test</value>
   </data>
@@ -124,14 +124,14 @@
     <value>Cancel</value>
   </data>
 
-  <!-- Node mode description -->
+  
   <data name="SettingsNodeModeDescription.Text" xml:space="preserve">
     <value>When enabled, this PC can receive commands from the agent (canvas, screenshots, etc.)</value>
   </data>
 
-  <!-- ==================== StatusDetailWindow.xaml ==================== -->
+  
 
-  <!-- Section headers -->
+  
   <data name="StatusUsageHeader.Text" xml:space="preserve">
     <value>USAGE</value>
   </data>
@@ -166,7 +166,7 @@
     <value>RECENT ACTIVITY</value>
   </data>
 
-  <!-- Labels -->
+  
   <data name="StatusCostLabel.Text" xml:space="preserve">
     <value>Cost (window):</value>
   </data>
@@ -177,7 +177,7 @@
     <value>Providers:</value>
   </data>
 
-  <!-- Default values -->
+  
   <data name="StatusConnectedText.Text" xml:space="preserve">
     <value>Connected</value>
   </data>
@@ -212,7 +212,7 @@
     <value>Open scheduled automation controls when the connected gateway supports them.</value>
   </data>
 
-  <!-- Buttons -->
+  
   <data name="StatusRefreshButton.Content" xml:space="preserve">
     <value>Refresh</value>
   </data>
@@ -262,14 +262,14 @@
     <value>Open Stream</value>
   </data>
 
-  <!-- ==================== ActivityStreamWindow.xaml ==================== -->
+  
 
-  <!-- Header -->
+  
   <data name="ActivityStreamTitle.Text" xml:space="preserve">
     <value>⚡ Activity Stream</value>
   </data>
 
-  <!-- Filter items -->
+  
   <data name="ActivityFilterAll.Content" xml:space="preserve">
     <value>All activity</value>
   </data>
@@ -286,12 +286,12 @@
     <value>Notifications</value>
   </data>
 
-  <!-- Empty state -->
+  
   <data name="ActivityEmptyText.Text" xml:space="preserve">
     <value>No activity yet</value>
   </data>
 
-  <!-- Buttons -->
+  
   <data name="ActivityOpenDashboardButton.Content" xml:space="preserve">
     <value>Open Dashboard</value>
   </data>
@@ -302,19 +302,19 @@
     <value>Close</value>
   </data>
 
-  <!-- ==================== NotificationHistoryWindow.xaml ==================== -->
+  
 
-  <!-- Header -->
+  
   <data name="NotificationHistoryTitle.Text" xml:space="preserve">
     <value>📋 Notification History</value>
   </data>
 
-  <!-- Empty state -->
+  
   <data name="NotificationEmptyText.Text" xml:space="preserve">
     <value>No notifications yet</value>
   </data>
 
-  <!-- Buttons -->
+  
   <data name="NotificationClearAllButton.Content" xml:space="preserve">
     <value>Clear All</value>
   </data>
@@ -322,9 +322,9 @@
     <value>Close</value>
   </data>
 
-  <!-- ==================== Runtime strings (C# code) ==================== -->
+  
 
-  <!-- Window titles -->
+  
   <data name="WindowTitle_Settings" xml:space="preserve">
     <value>Settings — OpenClaw Tray</value>
   </data>
@@ -350,7 +350,7 @@
     <value>OpenClaw Update</value>
   </data>
 
-  <!-- Settings runtime status -->
+  
   <data name="Status_Testing" xml:space="preserve">
     <value>Testing...</value>
   </data>
@@ -361,7 +361,7 @@
     <value>❌ Connection failed</value>
   </data>
 
-  <!-- QuickSend dialog -->
+  
   <data name="QuickSend_Header" xml:space="preserve">
     <value>📤 Quick Send</value>
   </data>
@@ -387,7 +387,7 @@
     <value>Your message was sent to OpenClaw.</value>
   </data>
 
-  <!-- WelcomeDialog -->
+  
   <data name="Welcome_Title" xml:space="preserve">
     <value>Welcome to OpenClaw!</value>
   </data>
@@ -413,7 +413,7 @@
     <value>Open Settings</value>
   </data>
 
-  <!-- UpdateDialog -->
+  
   <data name="Update_VersionAvailable" xml:space="preserve">
     <value>🎉 Version {0} is available!</value>
   </data>
@@ -433,7 +433,7 @@
     <value>Download &amp; Install</value>
   </data>
 
-  <!-- Tray menu items -->
+  
   <data name="Menu_OpenDashboard" xml:space="preserve">
     <value>Open Dashboard</value>
   </data>
@@ -525,7 +525,7 @@
     <value>Restart SSH Tunnel</value>
   </data>
 
-  <!-- Tray menu dynamic text -->
+  
   <data name="Menu_StatusFormat" xml:space="preserve">
     <value>Status: {0}</value>
   </data>
@@ -563,7 +563,7 @@
     <value>⚪ Disconnected</value>
   </data>
 
-  <!-- Notification test -->
+  
   <data name="TestNotification_Title" xml:space="preserve">
     <value>Test Notification</value>
   </data>
@@ -571,12 +571,12 @@
     <value>This is a test notification from OpenClaw Tray.</value>
   </data>
 
-  <!-- Status detail runtime -->
+  
   <data name="Status_LastCheckFormat" xml:space="preserve">
     <value>Last check: {0}</value>
   </data>
 
-  <!-- Time ago strings -->
+  
   <data name="TimeAgo_JustNow" xml:space="preserve">
     <value>Just now</value>
   </data>
@@ -587,7 +587,7 @@
     <value>{0}h ago</value>
   </data>
 
-  <!-- Activity stream runtime -->
+  
   <data name="Activity_ClickToOpen" xml:space="preserve">
     <value>Click to open in dashboard</value>
   </data>
@@ -596,7 +596,7 @@
     <value>{0}d ago</value>
   </data>
 
-  <!-- Status display text (plain, no emoji) -->
+  
   <data name="StatusDisplay_Connected" xml:space="preserve">
     <value>Connected</value>
   </data>
@@ -616,7 +616,7 @@
     <value>n/a</value>
   </data>
 
-  <!-- ==================== CanvasWindow.xaml ==================== -->
+  
 
   <data name="WindowTitle_Canvas" xml:space="preserve">
     <value>Canvas</value>
@@ -652,7 +652,7 @@
     <value>Select...</value>
   </data>
 
-  <!-- ==================== WebChatWindow.xaml ==================== -->
+  
 
   <data name="WebChatErrorTitle.Text" xml:space="preserve">
     <value>Web Chat Unavailable</value>
@@ -693,13 +693,13 @@ Use one of these options:
 • Or tunnel to localhost: ssh -N -L 18789:localhost:18789 &lt;server&gt;</value>
   </data>
 
-  <!-- ==================== TrayMenuWindow.xaml ==================== -->
+  
 
   <data name="WindowTitle_TrayMenu" xml:space="preserve">
     <value>OpenClaw Menu</value>
   </data>
 
-  <!-- ==================== Toast: Device / Node ==================== -->
+  
 
   <data name="Toast_DeviceIdCopied" xml:space="preserve">
     <value>📋 Device ID Copied</value>
@@ -714,7 +714,7 @@ Use one of these options:
     <value>{0} node(s) copied to clipboard</value>
   </data>
 
-  <!-- ==================== Toast: Session ==================== -->
+  
 
   <data name="Toast_SessionActionFailed" xml:space="preserve">
     <value>❌ Session action failed</value>
@@ -723,7 +723,7 @@ Use one of these options:
     <value>Could not send request to gateway.</value>
   </data>
 
-  <!-- ==================== Toast: Node Mode ==================== -->
+  
 
   <data name="Toast_NodeModeActive" xml:space="preserve">
     <value>🔌 Node Mode Active</value>
@@ -756,7 +756,7 @@ Use one of these options:
     <value>The gateway rejected this device pairing request.</value>
   </data>
 
-  <!-- ==================== Toast: Health Check ==================== -->
+  
 
   <data name="Toast_HealthCheck" xml:space="preserve">
     <value>Health Check</value>
@@ -771,7 +771,7 @@ Use one of these options:
     <value>Health Check Failed</value>
   </data>
 
-  <!-- ==================== Toast: Screen / Camera ==================== -->
+  
 
   <data name="Toast_ScreenCaptured" xml:space="preserve">
     <value>📸 Screen Captured</value>
@@ -786,7 +786,7 @@ Use one of these options:
     <value>Enable camera access in Windows Privacy settings for OpenClaw Tray</value>
   </data>
 
-  <!-- ==================== Toast: Activity Stream Tip ==================== -->
+  
 
   <data name="Toast_ActivityStreamTip" xml:space="preserve">
     <value>⚡ New: Activity Stream</value>
@@ -798,7 +798,7 @@ Use one of these options:
     <value>Open Activity Stream</value>
   </data>
 
-  <!-- ==================== SetupWizardWindow (C# code) ==================== -->
+  
 
   <data name="Setup_Title" xml:space="preserve">
     <value>OpenClaw Setup</value>
@@ -951,7 +951,7 @@ On your gateway host (Mac/Linux), run:
     <value>Step 3 of 3 — Done</value>
   </data>
 
-  <!-- ==================== Local MCP server (SettingsWindow) ==================== -->
+  
 
   <data name="SettingsDeveloperModeHeader.Text" xml:space="preserve">
     <value>DEVELOPER MODE</value>
@@ -987,7 +987,7 @@ On your gateway host (Mac/Linux), run:
     <value>Failed to start: </value>
   </data>
 
-  <!-- ==================== MCP token (SettingsWindow) ==================== -->
+  
 
   <data name="SettingsMcpTokenLabel.Text" xml:space="preserve">
     <value>Bearer token:</value>
@@ -1038,7 +1038,7 @@ On your gateway host (Mac/Linux), run:
     <value>Cancel</value>
   </data>
 
-  <!-- ==================== DownloadProgressDialog ==================== -->
+  
 
   <data name="WindowTitle_Downloading" xml:space="preserve">
     <value>Downloading Update...</value>
@@ -1047,7 +1047,7 @@ On your gateway host (Mac/Linux), run:
     <value>Downloading update...</value>
   </data>
 
-  <!-- ==================== UrlNavigationApprovalService prompt ==================== -->
+  
 
   <data name="UrlApproval_Caption" xml:space="preserve">
     <value>OpenClaw — Approve URL</value>
@@ -1658,7 +1658,7 @@ On your gateway host (Mac/Linux), run:
     <value>Connect</value>
   </data>
   <data name="ConnectionPage_TextBlock_111.Text" xml:space="preserve">
-    <value>Run &apos;openclaw qr&apos; on the gateway host for a setup code, or find the token in the gateway&apos;s config.</value>
+    <value>Run 'openclaw qr' on the gateway host for a setup code, or find the token in the gateway's config.</value>
   </data>
   <data name="GatewayEmptyText.Text" xml:space="preserve">
     <value>No gateways found. Click Scan to search.</value>
@@ -2341,7 +2341,7 @@ On your gateway host (Mac/Linux), run:
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>Remove job</value>
   </data>
-  <!-- ==================== STT/TTS card on CapabilitiesPage ==================== -->
+  
   <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
     <value>Recognizes microphone audio locally on this PC using Whisper. The model is downloaded once on first use.</value>
   </data>
@@ -2349,7 +2349,7 @@ On your gateway host (Mac/Linux), run:
     <value>🎤 Speech-to-Text</value>
   </data>
   <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
-    <value>BCP-47 tag (e.g. en-US, fr-FR, ja-JP) or &apos;auto&apos; to let Whisper detect the language.</value>
+    <value>BCP-47 tag (e.g. en-US, fr-FR, ja-JP) or 'auto' to let Whisper detect the language.</value>
   </data>
   <data name="CapabilitiesPage_SttLanguageLabel.Text" xml:space="preserve">
     <value>Language</value>
@@ -2394,4 +2394,289 @@ On your gateway host (Mac/Linux), run:
     <value>Windows built-in speech</value>
   </data>
 
+  <data name="VoiceSettingsPage_PageTitle.Text" xml:space="preserve">
+    <value>🎙️ Voice &amp; Audio</value>
+  </data>
+  <data name="VoiceSettingsPage_PageDescription.Text" xml:space="preserve">
+    <value>Configure speech-to-text and voice interaction settings. All speech processing runs locally on your device.</value>
+  </data>
+  <data name="VoiceSettingsPage_SttHeader.Text" xml:space="preserve">
+    <value>Speech-to-Text</value>
+  </data>
+  <data name="VoiceSettingsPage_SttDescription.Text" xml:space="preserve">
+    <value>Enable voice input via microphone. Requires a Whisper model download.</value>
+  </data>
+  <data name="VoiceSettingsPage_SttEnabledToggle.Header" xml:space="preserve">
+    <value>Enable Voice Input</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelHeader.Text" xml:space="preserve">
+    <value>Speech Model</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelCombo.Header" xml:space="preserve">
+    <value>Model Size</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelTiny.Content" xml:space="preserve">
+    <value>Tiny (~75 MB) — Fast, basic accuracy</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelBase.Content" xml:space="preserve">
+    <value>Base (~142 MB) — Good balance</value>
+  </data>
+  <data name="VoiceSettingsPage_ModelSmall.Content" xml:space="preserve">
+    <value>Small (~466 MB) — High accuracy</value>
+  </data>
+  <data name="VoiceSettingsPage_DownloadButtonText.Text" xml:space="preserve">
+    <value>Download Model</value>
+  </data>
+  <data name="VoiceSettingsPage_LanguageHeader.Text" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="VoiceSettingsPage_LangAuto.Content" xml:space="preserve">
+    <value>Auto-detect</value>
+  </data>
+  <data name="VoiceSettingsPage_LangEn.Content" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="VoiceSettingsPage_LangEs.Content" xml:space="preserve">
+    <value>Spanish</value>
+  </data>
+  <data name="VoiceSettingsPage_LangFr.Content" xml:space="preserve">
+    <value>French</value>
+  </data>
+  <data name="VoiceSettingsPage_LangDe.Content" xml:space="preserve">
+    <value>German</value>
+  </data>
+  <data name="VoiceSettingsPage_LangJa.Content" xml:space="preserve">
+    <value>Japanese</value>
+  </data>
+  <data name="VoiceSettingsPage_LangZh.Content" xml:space="preserve">
+    <value>Chinese</value>
+  </data>
+  <data name="VoiceSettingsPage_LangKo.Content" xml:space="preserve">
+    <value>Korean</value>
+  </data>
+  <data name="VoiceSettingsPage_LangPt.Content" xml:space="preserve">
+    <value>Portuguese</value>
+  </data>
+  <data name="VoiceSettingsPage_LangIt.Content" xml:space="preserve">
+    <value>Italian</value>
+  </data>
+  <data name="VoiceSettingsPage_VoiceChatHeader.Text" xml:space="preserve">
+    <value>Voice Chat</value>
+  </data>
+  <data name="VoiceSettingsPage_SilenceSlider.Header" xml:space="preserve">
+    <value>Silence timeout (seconds)</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsResponseToggle.Header" xml:space="preserve">
+    <value>Read responses aloud</value>
+  </data>
+  <data name="VoiceSettingsPage_AudioFeedbackToggle.Header" xml:space="preserve">
+    <value>Audio feedback sounds</value>
+  </data>
+  <data name="VoiceSettingsPage_VoiceHeader.Text" xml:space="preserve">
+    <value>🔊 Companion Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_VoiceDescription.Text" xml:space="preserve">
+    <value>Choose the voice used when reading responses aloud.</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsProviderCombo.Header" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsPiper.Content" xml:space="preserve">
+    <value>Piper (local neural voices)</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsWindows.Content" xml:space="preserve">
+    <value>Windows (built-in neural voices)</value>
+  </data>
+  <data name="VoiceSettingsPage_TtsElevenLabs.Content" xml:space="preserve">
+    <value>ElevenLabs (cloud, requires API key)</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperVoiceCombo.Header" xml:space="preserve">
+    <value>Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDownloadButtonText.Text" xml:space="preserve">
+    <value>Download Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDeleteButton.Content" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperPreviewButton.Content" xml:space="preserve">
+    <value>▶ Preview</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperInfoText.Text" xml:space="preserve">
+    <value>Voices download from the sherpa-onnx project's GitHub releases (~25 MB low quality, up to ~150 MB high quality). They run fully on this PC; no audio leaves your device.</value>
+  </data>
+  <data name="VoiceSettingsPage_WindowsVoiceCombo.Header" xml:space="preserve">
+    <value>Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_PreviewVoiceButton.Content" xml:space="preserve">
+    <value>▶ Preview Voice</value>
+  </data>
+  <data name="VoiceSettingsPage_ElevenLabsApiKeyBox.Header" xml:space="preserve">
+    <value>API Key</value>
+  </data>
+  <data name="VoiceSettingsPage_ElevenLabsVoiceIdBox.Header" xml:space="preserve">
+    <value>Voice ID</value>
+  </data>
+  <data name="VoiceSettingsPage_ElevenLabsModelBox.Header" xml:space="preserve">
+    <value>Model (optional)</value>
+  </data>
+  <data name="VoiceSettingsPage_PrivacyNote.Text" xml:space="preserve">
+    <value>All speech processing runs entirely on your device. No audio data is sent to any cloud service.</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusModelReady" xml:space="preserve">
+    <value>✅ Model ready</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusDownloadRequired" xml:space="preserve">
+    <value>⬇️ Download required</value>
+  </data>
+  <data name="VoiceSettingsPage_ButtonReDownload" xml:space="preserve">
+    <value>Re-download</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusDownloading" xml:space="preserve">
+    <value>Downloading...</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusDownloadingPct" xml:space="preserve">
+    <value>Downloading... {0}%</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusDownloadCanceled" xml:space="preserve">
+    <value>Download canceled</value>
+  </data>
+  <data name="VoiceSettingsPage_StatusError" xml:space="preserve">
+    <value>❌ {0}</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonDownloaded" xml:space="preserve">
+    <value>Downloaded</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperVoiceReady" xml:space="preserve">
+    <value>Voice ready on this PC ({0} MB).</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperVoiceNotDownloaded" xml:space="preserve">
+    <value>Voice not downloaded yet. Click Download to fetch the model (~25–150 MB depending on quality).</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonDownloading" xml:space="preserve">
+    <value>Downloading…</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperConnecting" xml:space="preserve">
+    <value>Connecting to sherpa-onnx releases…</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperProgressIndeterminate" xml:space="preserve">
+    <value>Downloading… {0} MB so far</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperProgressBytes" xml:space="preserve">
+    <value>Downloading… {0} / {1} MB</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperExtracting" xml:space="preserve">
+    <value>Download complete. Extracting…</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDownloadCanceled" xml:space="preserve">
+    <value>Download canceled.</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDownloadFailed" xml:space="preserve">
+    <value>Download failed: {0}</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonRetry" xml:space="preserve">
+    <value>Retry Download</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDeleted" xml:space="preserve">
+    <value>Voice deleted.</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperDeleteFailed" xml:space="preserve">
+    <value>Delete failed: {0}</value>
+  </data>
+  <data name="VoiceSettingsPage_CompanionPreviewText" xml:space="preserve">
+    <value>Hello! This is your Companion speaking.</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperPreviewFailed" xml:space="preserve">
+    <value>Preview failed: {0}</value>
+  </data>
+  <data name="VoiceSettingsPage_VoiceErrorLoading" xml:space="preserve">
+    <value>Error loading voices: {0}</value>
+  </data>
+  <data name="VoiceSettingsPage_PreviewButtonPlaying" xml:space="preserve">
+    <value>▶ Playing...</value>
+  </data>
+  <data name="VoiceOverlayWindow_HeaderText.Text" xml:space="preserve">
+    <value>Companion Voice</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusBadge.Text" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="VoiceOverlayWindow_EmptyStateText.Text" xml:space="preserve">
+    <value>Press Start and begin speaking</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusText.Text" xml:space="preserve">
+    <value>Press Start to begin</value>
+  </data>
+  <data name="VoiceOverlayWindow_StartStopText.Text" xml:space="preserve">
+    <value>Start Listening</value>
+  </data>
+  <data name="VoiceOverlayWindow_MuteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Mute</value>
+  </data>
+  <data name="VoiceOverlayWindow_SettingsButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>Voice Settings</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusListening" xml:space="preserve">
+    <value>🗣️ Listening...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusSpeakNow" xml:space="preserve">
+    <value>Speak now — I'm listening</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateInitializing" xml:space="preserve">
+    <value>Initializing...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateStarting" xml:space="preserve">
+    <value>Starting</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateDownloadingModel" xml:space="preserve">
+    <value>Downloading speech model...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateDownloadingPct" xml:space="preserve">
+    <value>Downloading model... {0}%</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateLoadingModel" xml:space="preserve">
+    <value>Loading speech model...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateStartingMic" xml:space="preserve">
+    <value>Starting microphone...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateStopping" xml:space="preserve">
+    <value>Stopping...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StateError" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusError" xml:space="preserve">
+    <value>Error: {0}</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusMuted" xml:space="preserve">
+    <value>Muted</value>
+  </data>
+  <data name="VoiceOverlayWindow_StopText" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeStopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeStartingDots" xml:space="preserve">
+    <value>Starting...</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeListening" xml:space="preserve">
+    <value>Listening</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeProcessing" xml:space="preserve">
+    <value>Processing...</value>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeUnknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusInitMic" xml:space="preserve">
+    <value>Initializing microphone...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusTranscribing" xml:space="preserve">
+    <value>Transcribing your speech...</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusErrorOccurred" xml:space="preserve">
+    <value>An error occurred</value>
+  </data>
 </root>

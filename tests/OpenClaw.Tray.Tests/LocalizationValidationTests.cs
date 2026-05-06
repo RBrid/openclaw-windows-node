@@ -32,6 +32,14 @@ public class LocalizationValidationTests
         "CapabilitiesPage_SttLanguageTextBox.PlaceholderText",
         "CapabilitiesPage_TtsElevenLabsModel.PlaceholderText",
         "CapabilitiesPage_TtsProviderElevenLabs.Content",
+        // VoiceSettingsPage_StatusError is "❌ {0}" — emoji + format placeholder
+        // only, intentionally identical across locales. The actual error
+        // message in {0} comes from runtime exception text, which is itself
+        // not localized at this layer.
+        "VoiceSettingsPage_StatusError",
+        // Sample IDs / brand identifiers — same across locales.
+        "VoiceSettingsPage_ElevenLabsVoiceIdBox.PlaceholderText",
+        "VoiceSettingsPage_ElevenLabsModelBox.PlaceholderText",
     };
 
     private static readonly string[] RequiredRuntimeOnboardingKeys =

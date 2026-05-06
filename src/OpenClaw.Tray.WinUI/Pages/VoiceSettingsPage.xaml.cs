@@ -2,9 +2,11 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using OpenClaw.Shared;
 using OpenClaw.Shared.Capabilities;
+using OpenClawTray.Helpers;
 using OpenClawTray.Services;
 using OpenClawTray.Windows;
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 
@@ -17,6 +19,10 @@ public sealed partial class VoiceSettingsPage : Page
     private bool _suppressEvents;
     // Per-asset CTS so a Piper download doesn't cancel an in-flight Whisper
     // download (and vice versa). Each download type owns its own token.
+    private static string L(string key) => LocalizationHelper.GetString(key);
+    private static string Lf(string key, params object?[] args) =>
+        string.Format(CultureInfo.CurrentCulture, LocalizationHelper.GetString(key), args);
+
     private CancellationTokenSource? _whisperDownloadCts;
     private CancellationTokenSource? _piperDownloadCts;
 
@@ -108,13 +114,13 @@ public sealed partial class VoiceSettingsPage : Page
 
         if (manager.IsModelDownloaded(modelName))
         {
-            ModelStatusText.Text = "✅ Model ready";
-            DownloadButtonText.Text = "Re-download";
+            ModelStatusText.Text = L("VoiceSettingsPage_StatusModelReady");
+            DownloadButtonText.Text = L("VoiceSettingsPage_ButtonReDownload");
         }
         else
         {
-            ModelStatusText.Text = "⬇️ Download required";
-            DownloadButtonText.Text = "Download Model";
+            ModelStatusText.Text = L("VoiceSettingsPage_StatusDownloadRequired");
+            DownloadButtonText.Text = L("VoiceSettingsPage_DownloadButtonText.Text");
         }
     }
 
@@ -188,7 +194,7 @@ public sealed partial class VoiceSettingsPage : Page
         DownloadButton.IsEnabled = false;
         DownloadProgress.Visibility = Visibility.Visible;
         DownloadProgress.Value = 0;
-        ModelStatusText.Text = "Downloading...";
+        ModelStatusText.Text = L("VoiceSettingsPage_StatusDownloading");
 
         try
         {
@@ -211,7 +217,7 @@ public sealed partial class VoiceSettingsPage : Page
                 {
                     var pct = (double)p.downloaded / p.total * 100;
                     DownloadProgress.Value = pct;
-                    ModelStatusText.Text = $"Downloading... {pct:F0}%";
+                    ModelStatusText.Text = Lf("VoiceSettingsPage_StatusDownloadingPct", $"{pct:F0}");
                 }
             });
 
@@ -233,16 +239,16 @@ public sealed partial class VoiceSettingsPage : Page
                 progress,
                 _whisperDownloadCts.Token);
 
-            ModelStatusText.Text = "✅ Model ready";
-            DownloadButtonText.Text = "Re-download";
+            ModelStatusText.Text = L("VoiceSettingsPage_StatusModelReady");
+            DownloadButtonText.Text = L("VoiceSettingsPage_ButtonReDownload");
         }
         catch (OperationCanceledException)
         {
-            ModelStatusText.Text = "Download canceled";
+            ModelStatusText.Text = L("VoiceSettingsPage_StatusDownloadCanceled");
         }
         catch (Exception ex)
         {
-            ModelStatusText.Text = $"❌ {ex.Message}";
+            ModelStatusText.Text = Lf("VoiceSettingsPage_StatusError", ex.Message);
         }
         finally
         {
@@ -330,7 +336,9 @@ public sealed partial class VoiceSettingsPage : Page
         var downloaded = voices.IsVoiceDownloaded(voiceId);
 
         PiperDownloadButton.IsEnabled = !downloaded;
-        PiperDownloadButtonText.Text = downloaded ? "Downloaded" : "Download Voice";
+        PiperDownloadButtonText.Text = downloaded
+            ? L("VoiceSettingsPage_PiperButtonDownloaded")
+            : L("VoiceSettingsPage_PiperDownloadButtonText.Text");
         PiperDownloadIcon.Glyph = downloaded ? "\uE73E" : "\uE896";  // checkmark vs download arrow
         PiperDeleteButton.Visibility = downloaded ? Visibility.Visible : Visibility.Collapsed;
         PiperPreviewButton.Visibility = downloaded ? Visibility.Visible : Visibility.Collapsed;
@@ -338,11 +346,11 @@ public sealed partial class VoiceSettingsPage : Page
         if (downloaded)
         {
             var sizeMb = voices.GetVoiceSize(voiceId) / (1024d * 1024d);
-            PiperStatusText.Text = $"Voice ready on this PC ({sizeMb:F1} MB).";
+            PiperStatusText.Text = Lf("VoiceSettingsPage_PiperVoiceReady", $"{sizeMb:F1}");
         }
         else
         {
-            PiperStatusText.Text = "Voice not downloaded yet. Click Download to fetch the model (~25–150 MB depending on quality).";
+            PiperStatusText.Text = L("VoiceSettingsPage_PiperVoiceNotDownloaded");
         }
         PiperDownloadProgress.Visibility = Visibility.Collapsed;
     }
@@ -359,10 +367,10 @@ public sealed partial class VoiceSettingsPage : Page
         var ct = _piperDownloadCts.Token;
 
         PiperDownloadButton.IsEnabled = false;
-        PiperDownloadButtonText.Text = "Downloading…";
+        PiperDownloadButtonText.Text = L("VoiceSettingsPage_PiperButtonDownloading");
         PiperDownloadProgress.Visibility = Visibility.Visible;
         PiperDownloadProgress.Value = 0;
-        PiperStatusText.Text = "Connecting to sherpa-onnx releases…";
+        PiperStatusText.Text = L("VoiceSettingsPage_PiperConnecting");
 
         try
         {
@@ -380,34 +388,36 @@ public sealed partial class VoiceSettingsPage : Page
                 if (p.total <= 0)
                 {
                     PiperDownloadProgress.IsIndeterminate = true;
-                    PiperStatusText.Text = $"Downloading… {p.downloaded / (1024 * 1024)} MB so far";
+                    PiperStatusText.Text = Lf("VoiceSettingsPage_PiperProgressIndeterminate", p.downloaded / (1024 * 1024));
                 }
                 else
                 {
                     PiperDownloadProgress.IsIndeterminate = false;
                     PiperDownloadProgress.Value = (double)p.downloaded * 100 / p.total;
-                    PiperStatusText.Text = $"Downloading… {p.downloaded / (1024d * 1024d):F1} / {p.total / (1024d * 1024d):F1} MB";
+                    PiperStatusText.Text = Lf("VoiceSettingsPage_PiperProgressBytes",
+                        $"{p.downloaded / (1024d * 1024d):F1}",
+                        $"{p.total / (1024d * 1024d):F1}");
                 }
             });
 
             await voices.DownloadVoiceAsync(voiceId, progress, ct);
-            PiperStatusText.Text = "Download complete. Extracting…";
+            PiperStatusText.Text = L("VoiceSettingsPage_PiperExtracting");
             // DownloadVoiceAsync extracts inline before returning, so by the
             // time we get here the voice is fully on disk.
             UpdatePiperVoiceState();
         }
         catch (OperationCanceledException)
         {
-            PiperStatusText.Text = "Download canceled.";
+            PiperStatusText.Text = L("VoiceSettingsPage_PiperDownloadCanceled");
             UpdatePiperVoiceState();
         }
         catch (Exception ex)
         {
             // The Logger captured full detail; surface a short user-facing
             // message without leaking the URL or stack frame.
-            PiperStatusText.Text = $"Download failed: {ex.Message}";
+            PiperStatusText.Text = Lf("VoiceSettingsPage_PiperDownloadFailed", ex.Message);
             PiperDownloadButton.IsEnabled = true;
-            PiperDownloadButtonText.Text = "Retry Download";
+            PiperDownloadButtonText.Text = L("VoiceSettingsPage_PiperButtonRetry");
             PiperDownloadProgress.Visibility = Visibility.Collapsed;
         }
     }
@@ -421,12 +431,12 @@ public sealed partial class VoiceSettingsPage : Page
         {
             var voices = new OpenClaw.Shared.Audio.PiperVoiceManager(SettingsManager.SettingsDirectoryPath, new AppLogger());
             voices.DeleteVoice(voiceId);
-            PiperStatusText.Text = "Voice deleted.";
+            PiperStatusText.Text = L("VoiceSettingsPage_PiperDeleted");
             UpdatePiperVoiceState();
         }
         catch (Exception ex)
         {
-            PiperStatusText.Text = $"Delete failed: {ex.Message}";
+            PiperStatusText.Text = Lf("VoiceSettingsPage_PiperDeleteFailed", ex.Message);
         }
     }
 
@@ -437,14 +447,14 @@ public sealed partial class VoiceSettingsPage : Page
 
         PiperPreviewButton.IsEnabled = false;
         var oldContent = PiperPreviewButton.Content;
-        PiperPreviewButton.Content = "▶ Playing…";
+        PiperPreviewButton.Content = L("VoiceSettingsPage_PreviewButtonPlaying");
 
         try
         {
             using var tts = new TextToSpeechService(new AppLogger(), _hub.Settings);
             await tts.SpeakAsync(new OpenClaw.Shared.Capabilities.TtsSpeakArgs
             {
-                Text = "Hello! This is your Companion speaking.",
+                Text = L("VoiceSettingsPage_CompanionPreviewText"),
                 Provider = OpenClaw.Shared.Capabilities.TtsCapability.PiperProvider,
                 VoiceId = voiceId,
                 Interrupt = true
@@ -452,7 +462,7 @@ public sealed partial class VoiceSettingsPage : Page
         }
         catch (Exception ex)
         {
-            PiperStatusText.Text = $"Preview failed: {ex.Message}";
+            PiperStatusText.Text = Lf("VoiceSettingsPage_PiperPreviewFailed", ex.Message);
         }
         finally
         {
@@ -490,7 +500,7 @@ public sealed partial class VoiceSettingsPage : Page
         }
         catch (Exception ex)
         {
-            WindowsVoiceCombo.Items.Add(new ComboBoxItem { Content = $"Error loading voices: {ex.Message}", IsEnabled = false });
+            WindowsVoiceCombo.Items.Add(new ComboBoxItem { Content = Lf("VoiceSettingsPage_VoiceErrorLoading", ex.Message), IsEnabled = false });
         }
     }
 
@@ -534,7 +544,7 @@ public sealed partial class VoiceSettingsPage : Page
         if (_hub?.Settings == null) return;
 
         PreviewVoiceButton.IsEnabled = false;
-        PreviewVoiceButton.Content = "▶ Playing...";
+        PreviewVoiceButton.Content = L("VoiceSettingsPage_PreviewButtonPlaying");
 
         try
         {
@@ -543,7 +553,7 @@ public sealed partial class VoiceSettingsPage : Page
             {
                 await tts.SpeakAsync(new OpenClaw.Shared.Capabilities.TtsSpeakArgs
                 {
-                    Text = "Hello! This is your Companion speaking.",
+                    Text = L("VoiceSettingsPage_CompanionPreviewText"),
                     Provider = _hub.Settings.TtsProvider,
                     VoiceId = WindowsVoiceCombo.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() : null,
                     Interrupt = true
@@ -557,13 +567,13 @@ public sealed partial class VoiceSettingsPage : Page
         catch (Exception ex)
         {
             // Show error inline
-            PreviewVoiceButton.Content = $"❌ {ex.Message}";
+            PreviewVoiceButton.Content = Lf("VoiceSettingsPage_StatusError", ex.Message);
             await System.Threading.Tasks.Task.Delay(3000);
         }
         finally
         {
             PreviewVoiceButton.IsEnabled = true;
-            PreviewVoiceButton.Content = "▶ Preview Voice";
+            PreviewVoiceButton.Content = L("VoiceSettingsPage_PreviewVoiceButton.Content");
         }
     }
 

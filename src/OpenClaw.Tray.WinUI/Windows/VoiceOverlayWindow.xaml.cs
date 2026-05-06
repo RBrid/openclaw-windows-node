@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -6,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using OpenClaw.Shared;
 using OpenClaw.Shared.Audio;
+using OpenClawTray.Helpers;
 using OpenClawTray.Services;
 using WinUIEx;
 
@@ -171,11 +173,17 @@ public sealed partial class VoiceOverlayWindow : WindowEx
         }
     }
 
+    private static string L(string key) => LocalizationHelper.GetString(key);
+    private static string Lf(string key, params object?[] args) =>
+        string.Format(CultureInfo.CurrentCulture, LocalizationHelper.GetString(key), args);
+
     private void OnSpeakingChanged(bool isSpeaking)
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
-            StatusText.Text = isSpeaking ? "🗣️ Listening..." : "Speak now — I'm listening";
+            StatusText.Text = isSpeaking
+                ? L("VoiceOverlayWindow_StatusListening")
+                : L("VoiceOverlayWindow_StatusSpeakNow");
         });
     }
 
@@ -208,22 +216,22 @@ public sealed partial class VoiceOverlayWindow : WindowEx
         {
             StatusBadge.Text = state switch
             {
-                AudioPipelineState.Stopped => "Stopped",
-                AudioPipelineState.Starting => "Starting...",
-                AudioPipelineState.Listening => "Listening",
-                AudioPipelineState.Processing => "Processing...",
-                AudioPipelineState.Error => "Error",
-                _ => "Unknown"
+                AudioPipelineState.Stopped    => L("VoiceOverlayWindow_BadgeStopped"),
+                AudioPipelineState.Starting   => L("VoiceOverlayWindow_BadgeStartingDots"),
+                AudioPipelineState.Listening  => L("VoiceOverlayWindow_BadgeListening"),
+                AudioPipelineState.Processing => L("VoiceOverlayWindow_BadgeProcessing"),
+                AudioPipelineState.Error      => L("VoiceOverlayWindow_StateError"),
+                _                             => L("VoiceOverlayWindow_BadgeUnknown")
             };
 
             StatusText.Text = state switch
             {
-                AudioPipelineState.Stopped => "Press Start to begin",
-                AudioPipelineState.Starting => "Initializing microphone...",
-                AudioPipelineState.Listening => "Speak now — I'm listening",
-                AudioPipelineState.Processing => "Transcribing your speech...",
-                AudioPipelineState.Error => "An error occurred",
-                _ => ""
+                AudioPipelineState.Stopped    => L("VoiceOverlayWindow_StatusText.Text"),
+                AudioPipelineState.Starting   => L("VoiceOverlayWindow_StatusInitMic"),
+                AudioPipelineState.Listening  => L("VoiceOverlayWindow_StatusSpeakNow"),
+                AudioPipelineState.Processing => L("VoiceOverlayWindow_StatusTranscribing"),
+                AudioPipelineState.Error      => L("VoiceOverlayWindow_StatusErrorOccurred"),
+                _                             => ""
             };
         });
     }
@@ -233,13 +241,15 @@ public sealed partial class VoiceOverlayWindow : WindowEx
         var isActive = _voiceService.CurrentMode != VoiceMode.Inactive;
 
         StartStopIcon.Glyph = isActive ? "\uE71A" : "\uE768"; // Stop / Play
-        StartStopText.Text = isActive ? "Stop" : "Start Listening";
+        StartStopText.Text = isActive
+            ? L("VoiceOverlayWindow_StopText")
+            : L("VoiceOverlayWindow_StartStopText.Text");
         MuteButton.IsEnabled = isActive;
 
         if (!isActive)
         {
-            StatusBadge.Text = "Ready";
-            StatusText.Text = "Press Start to begin";
+            StatusBadge.Text = L("VoiceOverlayWindow_StatusBadge.Text");
+            StatusText.Text = L("VoiceOverlayWindow_StatusText.Text");
             AudioLevelBar.Width = 0;
         }
     }
@@ -250,8 +260,8 @@ public sealed partial class VoiceOverlayWindow : WindowEx
         {
             if (_voiceService.CurrentMode == VoiceMode.Inactive)
             {
-                StatusText.Text = "Initializing...";
-                StatusBadge.Text = "Starting";
+                StatusText.Text = L("VoiceOverlayWindow_StateInitializing");
+                StatusBadge.Text = L("VoiceOverlayWindow_StateStarting");
                 StartStopButton.IsEnabled = false;
 
                 // Initialize models if needed (may trigger downloads)
@@ -259,36 +269,36 @@ public sealed partial class VoiceOverlayWindow : WindowEx
                 {
                     if (!_voiceService.IsModelDownloaded)
                     {
-                        StatusText.Text = "Downloading speech model...";
+                        StatusText.Text = L("VoiceOverlayWindow_StateDownloadingModel");
                         var progress = new Progress<(long downloaded, long total)>(p =>
                         {
                             _dispatcherQueue.TryEnqueue(() =>
                             {
                                 var pct = p.total > 0 ? (int)(p.downloaded * 100 / p.total) : 0;
-                                StatusText.Text = $"Downloading model... {pct}%";
+                                StatusText.Text = Lf("VoiceOverlayWindow_StateDownloadingPct", pct);
                             });
                         });
                         await _voiceService.DownloadModelAsync(progress: progress);
                     }
 
-                    StatusText.Text = "Loading speech model...";
+                    StatusText.Text = L("VoiceOverlayWindow_StateLoadingModel");
                     await _voiceService.InitializeAsync();
                 }
 
-                StatusText.Text = "Starting microphone...";
+                StatusText.Text = L("VoiceOverlayWindow_StateStartingMic");
                 await _voiceService.StartVoiceChatAsync();
             }
             else
             {
-                StatusText.Text = "Stopping...";
+                StatusText.Text = L("VoiceOverlayWindow_StateStopping");
                 await _voiceService.StopAsync();
             }
         }
         catch (Exception ex)
         {
             _logger.Error("Voice overlay start/stop failed", ex);
-            StatusText.Text = $"Error: {ex.Message}";
-            StatusBadge.Text = "Error";
+            StatusText.Text = Lf("VoiceOverlayWindow_StatusError", ex.Message);
+            StatusBadge.Text = L("VoiceOverlayWindow_StateError");
         }
         finally
         {
@@ -305,7 +315,7 @@ public sealed partial class VoiceOverlayWindow : WindowEx
         if (_isMuted)
         {
             await _voiceService.StopAsync();
-            StatusText.Text = "Muted";
+            StatusText.Text = L("VoiceOverlayWindow_StatusMuted");
         }
         else
         {
