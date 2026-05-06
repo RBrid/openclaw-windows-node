@@ -66,12 +66,9 @@ public sealed class CapabilitiesPageLocalizationCoverageTests
     /// </summary>
     public static IEnumerable<object[]> SttAndTtsCardUids => new[]
     {
-        // STT card (language, deep-link)
+        // STT card (deep-link to dedicated voice settings)
         new object[] { "CapabilitiesPage_SttCardHeader",        new[] { ".Text" } },
         new object[] { "CapabilitiesPage_SttCardDescription",   new[] { ".Text" } },
-        new object[] { "CapabilitiesPage_SttLanguageLabel",     new[] { ".Text" } },
-        new object[] { "CapabilitiesPage_SttLanguageTextBox",   new[] { ".PlaceholderText" } },
-        new object[] { "CapabilitiesPage_SttLanguageHelp",      new[] { ".Text" } },
         new object[] { "CapabilitiesPage_SttMoreSettingsLink",  new[] { ".Content" } },
         // TTS card (provider picker, ElevenLabs sub-panel)
         new object[] { "CapabilitiesPage_TtsCardHeader",        new[] { ".Text" } },

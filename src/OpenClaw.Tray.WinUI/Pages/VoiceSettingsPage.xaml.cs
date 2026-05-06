@@ -120,7 +120,7 @@ public sealed partial class VoiceSettingsPage : Page
         else
         {
             ModelStatusText.Text = L("VoiceSettingsPage_StatusDownloadRequired");
-            DownloadButtonText.Text = L("VoiceSettingsPage_DownloadButtonText.Text");
+            DownloadButtonText.Text = L("VoiceSettingsPage_ButtonDownloadModel");
         }
     }
 
@@ -338,7 +338,7 @@ public sealed partial class VoiceSettingsPage : Page
         PiperDownloadButton.IsEnabled = !downloaded;
         PiperDownloadButtonText.Text = downloaded
             ? L("VoiceSettingsPage_PiperButtonDownloaded")
-            : L("VoiceSettingsPage_PiperDownloadButtonText.Text");
+            : L("VoiceSettingsPage_PiperButtonDownloadVoice");
         PiperDownloadIcon.Glyph = downloaded ? "\uE73E" : "\uE896";  // checkmark vs download arrow
         PiperDeleteButton.Visibility = downloaded ? Visibility.Visible : Visibility.Collapsed;
         PiperPreviewButton.Visibility = downloaded ? Visibility.Visible : Visibility.Collapsed;
@@ -573,7 +573,7 @@ public sealed partial class VoiceSettingsPage : Page
         finally
         {
             PreviewVoiceButton.IsEnabled = true;
-            PreviewVoiceButton.Content = L("VoiceSettingsPage_PreviewVoiceButton.Content");
+            PreviewVoiceButton.Content = L("VoiceSettingsPage_PreviewVoiceButtonContent");
         }
     }
 

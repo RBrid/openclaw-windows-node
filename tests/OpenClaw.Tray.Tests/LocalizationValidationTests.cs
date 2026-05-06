@@ -26,10 +26,8 @@ public class LocalizationValidationTests
         "WindowTitle_Update",
         // STT/TTS card invariants — these are protocol/brand identifiers
         // not user-visible prose. They intentionally read the same in every
-        // locale: "auto" is the BCP-47 sentinel literal accepted by
-        // SttCapability.NormalizeLanguageTag, "eleven_multilingual_v2" is
-        // an ElevenLabs model identifier, "ElevenLabs" is a brand name.
-        "CapabilitiesPage_SttLanguageTextBox.PlaceholderText",
+        // locale: "eleven_multilingual_v2" is an ElevenLabs model
+        // identifier, "ElevenLabs" is a brand name.
         // VoiceOverlayWindow window-title key — matches the convention
         // for ChatWindow / HubWindow / CanvasWindow / TrayMenuWindow.
         "VoiceOverlayWindow_winexWindowEx_2.Title",

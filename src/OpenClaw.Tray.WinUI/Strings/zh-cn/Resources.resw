@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -17,8 +17,6 @@
       </xs:complexType>
     </xs:element>
   </xs:schema>
-  
-  
   <data name="SettingsConnectionHeader.Text" xml:space="preserve">
     <value>连接</value>
   </data>
@@ -31,7 +29,6 @@
   <data name="SettingsAdvancedHeader.Text" xml:space="preserve">
     <value>高级（实验性）</value>
   </data>
-  
   <data name="SettingsGatewayUrlTextBox.Header" xml:space="preserve">
     <value>网关地址</value>
   </data>
@@ -44,7 +41,6 @@
   <data name="SettingsTokenTextBox.PlaceholderText" xml:space="preserve">
     <value>您的 API 令牌</value>
   </data>
-  
   <data name="SettingsAutoStartToggle.Header" xml:space="preserve">
     <value>随 Windows 自动启动</value>
   </data>
@@ -57,7 +53,6 @@
   <data name="SettingsNodeModeToggle.Header" xml:space="preserve">
     <value>启用节点模式</value>
   </data>
-  
   <data name="SettingsSoundComboBox.Header" xml:space="preserve">
     <value>提示音</value>
   </data>
@@ -70,14 +65,12 @@
   <data name="SettingsSoundSubtle.Content" xml:space="preserve">
     <value>柔和</value>
   </data>
-  
   <data name="SettingsNotifyForLabel.Text" xml:space="preserve">
     <value>显示以下类型通知:</value>
   </data>
   <data name="SettingsNotifyFilterHint.Text" xml:space="preserve">
     <value>按消息中的关键词过滤（例如"邮件"、"提醒"）</value>
   </data>
-  
   <data name="SettingsNotifyHealthCb.Content" xml:space="preserve">
     <value>健康警报</value>
   </data>
@@ -102,7 +95,6 @@
   <data name="SettingsNotifyInfoCb.Content" xml:space="preserve">
     <value>常规信息</value>
   </data>
-  
   <data name="SettingsTestConnectionButton.Content" xml:space="preserve">
     <value>测试</value>
   </data>
@@ -115,12 +107,9 @@
   <data name="SettingsCancelButton.Content" xml:space="preserve">
     <value>取消</value>
   </data>
-  
   <data name="SettingsNodeModeDescription.Text" xml:space="preserve">
     <value>启用后，此电脑可以接收来自代理的命令（画布、截图等）</value>
   </data>
-  
-  
   <data name="StatusUsageHeader.Text" xml:space="preserve">
     <value>用量</value>
   </data>
@@ -154,7 +143,6 @@
   <data name="StatusRecentActivityHeader.Text" xml:space="preserve">
     <value>最近活动</value>
   </data>
-  
   <data name="StatusCostLabel.Text" xml:space="preserve">
     <value>费用（窗口期）:</value>
   </data>
@@ -164,7 +152,6 @@
   <data name="StatusProvidersLabel.Text" xml:space="preserve">
     <value>提供者:</value>
   </data>
-  
   <data name="StatusConnectedText.Text" xml:space="preserve">
     <value>已连接</value>
   </data>
@@ -198,7 +185,6 @@
   <data name="StatusCronDescription.Text" xml:space="preserve">
     <value>当连接的网关支持时，打开计划自动化控件。</value>
   </data>
-  
   <data name="StatusRefreshButton.Content" xml:space="preserve">
     <value>刷新</value>
   </data>
@@ -247,12 +233,9 @@
   <data name="StatusOpenStreamButton.Content" xml:space="preserve">
     <value>打开流</value>
   </data>
-  
-  
   <data name="ActivityStreamTitle.Text" xml:space="preserve">
     <value>⚡ 活动流</value>
   </data>
-  
   <data name="ActivityFilterAll.Content" xml:space="preserve">
     <value>全部活动</value>
   </data>
@@ -268,11 +251,9 @@
   <data name="ActivityFilterNotifications.Content" xml:space="preserve">
     <value>通知</value>
   </data>
-  
   <data name="ActivityEmptyText.Text" xml:space="preserve">
     <value>暂无活动</value>
   </data>
-  
   <data name="ActivityOpenDashboardButton.Content" xml:space="preserve">
     <value>打开仪表板</value>
   </data>
@@ -282,24 +263,18 @@
   <data name="ActivityCloseButton.Content" xml:space="preserve">
     <value>关闭</value>
   </data>
-  
-  
   <data name="NotificationHistoryTitle.Text" xml:space="preserve">
     <value>📋 通知历史</value>
   </data>
-  
   <data name="NotificationEmptyText.Text" xml:space="preserve">
     <value>暂无通知</value>
   </data>
-  
   <data name="NotificationClearAllButton.Content" xml:space="preserve">
     <value>全部清除</value>
   </data>
   <data name="NotificationCloseButton.Content" xml:space="preserve">
     <value>关闭</value>
   </data>
-  
-  
   <data name="WindowTitle_Settings" xml:space="preserve">
     <value>设置 — OpenClaw 托盘</value>
   </data>
@@ -324,7 +299,6 @@
   <data name="WindowTitle_Update" xml:space="preserve">
     <value>OpenClaw 更新</value>
   </data>
-  
   <data name="Status_Testing" xml:space="preserve">
     <value>测试中...</value>
   </data>
@@ -334,7 +308,6 @@
   <data name="Status_ConnectionFailed" xml:space="preserve">
     <value>❌ 连接失败</value>
   </data>
-  
   <data name="QuickSend_Header" xml:space="preserve">
     <value>📤 快速发送</value>
   </data>
@@ -359,7 +332,6 @@
   <data name="QuickSend_ToastBody" xml:space="preserve">
     <value>您的消息已发送至 OpenClaw。</value>
   </data>
-  
   <data name="Welcome_Title" xml:space="preserve">
     <value>欢迎使用 OpenClaw！</value>
   </data>
@@ -384,7 +356,6 @@
   <data name="Welcome_OpenSettingsButton" xml:space="preserve">
     <value>打开设置</value>
   </data>
-  
   <data name="Update_VersionAvailable" xml:space="preserve">
     <value>🎉 版本 {0} 已可用！</value>
   </data>
@@ -403,7 +374,6 @@
   <data name="Update_DownloadButton" xml:space="preserve">
     <value>下载并安装</value>
   </data>
-  
   <data name="Menu_OpenDashboard" xml:space="preserve">
     <value>打开仪表板</value>
   </data>
@@ -494,7 +464,6 @@
   <data name="Menu_RestartSshTunnel" xml:space="preserve">
     <value>重启 SSH 隧道</value>
   </data>
-  
   <data name="Menu_StatusFormat" xml:space="preserve">
     <value>状态: {0}</value>
   </data>
@@ -531,18 +500,15 @@
   <data name="Menu_NodeDisconnected" xml:space="preserve">
     <value>⚪ 已断开</value>
   </data>
-  
   <data name="TestNotification_Title" xml:space="preserve">
     <value>测试通知</value>
   </data>
   <data name="TestNotification_Body" xml:space="preserve">
     <value>这是来自 OpenClaw 托盘的测试通知。</value>
   </data>
-  
   <data name="Status_LastCheckFormat" xml:space="preserve">
     <value>上次检查: {0}</value>
   </data>
-  
   <data name="TimeAgo_JustNow" xml:space="preserve">
     <value>刚刚</value>
   </data>
@@ -552,14 +518,12 @@
   <data name="TimeAgo_HoursFormat" xml:space="preserve">
     <value>{0}小时前</value>
   </data>
-  
   <data name="Activity_ClickToOpen" xml:space="preserve">
     <value>点击在仪表板中打开</value>
   </data>
   <data name="TimeAgo_DaysFormat" xml:space="preserve">
     <value>{0}天前</value>
   </data>
-  
   <data name="StatusDisplay_Connected" xml:space="preserve">
     <value>已连接</value>
   </data>
@@ -578,7 +542,6 @@
   <data name="Status_NotAvailable" xml:space="preserve">
     <value>无</value>
   </data>
-  
   <data name="WindowTitle_Canvas" xml:space="preserve">
     <value>画布</value>
   </data>
@@ -612,7 +575,6 @@
   <data name="A2UI_UnsupportedComponent" xml:space="preserve">
     <value>不支持的组件: {0}</value>
   </data>
-  
   <data name="WebChatErrorTitle.Text" xml:space="preserve">
     <value>网页聊天不可用</value>
   </data>
@@ -651,11 +613,9 @@
 • 如果是自签名证书，请将网关 CA/证书导入 Windows 受信任的根证书（certmgr.msc）
 • 或通过隧道连接到 localhost：ssh -N -L 18789:localhost:18789 &lt;服务器&gt;</value>
   </data>
-  
   <data name="WindowTitle_TrayMenu" xml:space="preserve">
     <value>OpenClaw 菜单</value>
   </data>
-  
   <data name="Toast_DeviceIdCopied" xml:space="preserve">
     <value>📋 设备 ID 已复制</value>
   </data>
@@ -668,14 +628,12 @@
   <data name="Toast_NodeSummaryCopiedDetail" xml:space="preserve">
     <value>已复制 {0} 个节点到剪贴板</value>
   </data>
-  
   <data name="Toast_SessionActionFailed" xml:space="preserve">
     <value>❌ 会话操作失败</value>
   </data>
   <data name="Toast_SessionActionFailedDetail" xml:space="preserve">
     <value>无法向网关发送请求。</value>
   </data>
-  
   <data name="Toast_NodeModeActive" xml:space="preserve">
     <value>🔌 节点模式已激活</value>
   </data>
@@ -706,7 +664,6 @@
   <data name="Toast_PairingRejectedDetail" xml:space="preserve">
     <value>网关拒绝了此设备的配对请求。</value>
   </data>
-  
   <data name="Toast_HealthCheck" xml:space="preserve">
     <value>健康检查</value>
   </data>
@@ -719,7 +676,6 @@
   <data name="Toast_HealthCheckFailed" xml:space="preserve">
     <value>健康检查失败</value>
   </data>
-  
   <data name="Toast_ScreenCaptured" xml:space="preserve">
     <value>📸 屏幕已捕获</value>
   </data>
@@ -732,7 +688,6 @@
   <data name="Toast_CameraBlockedDetail" xml:space="preserve">
     <value>请在 Windows 隐私设置中为 OpenClaw Tray 启用相机访问</value>
   </data>
-  
   <data name="Toast_ActivityStreamTip" xml:space="preserve">
     <value>⚡ 新功能: 活动流</value>
   </data>
@@ -742,7 +697,6 @@
   <data name="Toast_ActivityStreamTipButton" xml:space="preserve">
     <value>打开活动流</value>
   </data>
-  
   <data name="Setup_Title" xml:space="preserve">
     <value>OpenClaw 设置</value>
   </data>
@@ -893,7 +847,6 @@
   <data name="Setup_StepDone" xml:space="preserve">
     <value>第 3 步（共 3 步）— 完成</value>
   </data>
-  
   <data name="SettingsDeveloperModeHeader.Text" xml:space="preserve">
     <value>开发者模式</value>
   </data>
@@ -927,7 +880,6 @@
   <data name="Mcp_Status_FailedToStart" xml:space="preserve">
     <value>启动失败：</value>
   </data>
-  
   <data name="SettingsMcpTokenLabel.Text" xml:space="preserve">
     <value>Bearer 令牌：</value>
   </data>
@@ -976,14 +928,12 @@
   <data name="SettingsMcpTokenResetDialog_CloseButton" xml:space="preserve">
     <value>取消</value>
   </data>
-  
   <data name="WindowTitle_Downloading" xml:space="preserve">
     <value>正在下载更新...</value>
   </data>
   <data name="Download_ProgressText" xml:space="preserve">
     <value>正在下载更新...</value>
   </data>
-  
   <data name="UrlApproval_Caption" xml:space="preserve">
     <value>OpenClaw — 批准 URL</value>
   </data>
@@ -1470,7 +1420,7 @@
   <data name="ClearButton.Content" xml:space="preserve">
     <value>清除</value>
   </data>
-<data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
+  <data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
     <value>🔀 绑定</value>
   </data>
   <data name="BindingsPage_TextBlock_17.Text" xml:space="preserve">
@@ -1704,7 +1654,7 @@
   <data name="CronPage_TextBlock_120.Text" xml:space="preserve">
     <value>未配置 Cron 作业</value>
   </data>
-<data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
+  <data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
     <value>🐛 调试</value>
   </data>
   <data name="DebugPage_TextBlock_14.Text" xml:space="preserve">
@@ -1758,7 +1708,7 @@
   <data name="DebugPage_Button_114.Content" xml:space="preserve">
     <value>📋 复制支持上下文</value>
   </data>
-<data name="StatusHeadline.Text" xml:space="preserve">
+  <data name="StatusHeadline.Text" xml:space="preserve">
     <value>未连接到网关</value>
   </data>
   <data name="ScanButton.Content" xml:space="preserve">
@@ -2274,21 +2224,11 @@
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>删除任务</value>
   </data>
-  
   <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
     <value>使用 Whisper 在本机本地识别麦克风音频。模型在首次使用时下载一次。</value>
   </data>
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 语音转文字</value>
-  </data>
-  <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
-    <value>BCP-47 标签（例如 en-US、fr-FR、ja-JP）或 'auto' 让 Whisper 自动检测语言。</value>
-  </data>
-  <data name="CapabilitiesPage_SttLanguageLabel.Text" xml:space="preserve">
-    <value>语言</value>
-  </data>
-  <data name="CapabilitiesPage_SttLanguageTextBox.PlaceholderText" xml:space="preserve">
-    <value>auto</value>
   </data>
   <data name="CapabilitiesPage_SttMoreSettingsLink.Content" xml:space="preserve">
     <value>更多语音设置…</value>
@@ -2326,7 +2266,6 @@
   <data name="CapabilitiesPage_TtsProviderWindows.Content" xml:space="preserve">
     <value>Windows 内置语音</value>
   </data>
-
   <data name="VoiceSettingsPage_PageTitle.Text" xml:space="preserve">
     <value>🎙️ 语音和音频</value>
   </data>
@@ -2614,4 +2553,23 @@
   </data>
   <data name="VoiceOverlayWindow_winexWindowEx_2.Title" xml:space="preserve">
     <value>Companion Voice</value>
-  </data></root>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeReady" xml:space="preserve">
+    <value>就绪</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusReadyMessage" xml:space="preserve">
+    <value>按开始以开始</value>
+  </data>
+  <data name="VoiceOverlayWindow_ButtonStartListening" xml:space="preserve">
+    <value>开始聆听</value>
+  </data>
+  <data name="VoiceSettingsPage_ButtonDownloadModel" xml:space="preserve">
+    <value>下载模型</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonDownloadVoice" xml:space="preserve">
+    <value>下载语音</value>
+  </data>
+  <data name="VoiceSettingsPage_PreviewVoiceButtonContent" xml:space="preserve">
+    <value>▶ 预览语音</value>
+  </data>
+</root>

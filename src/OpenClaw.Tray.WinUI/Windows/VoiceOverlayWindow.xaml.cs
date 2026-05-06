@@ -226,7 +226,7 @@ public sealed partial class VoiceOverlayWindow : WindowEx
 
             StatusText.Text = state switch
             {
-                AudioPipelineState.Stopped    => L("VoiceOverlayWindow_StatusText.Text"),
+                AudioPipelineState.Stopped    => L("VoiceOverlayWindow_StatusReadyMessage"),
                 AudioPipelineState.Starting   => L("VoiceOverlayWindow_StatusInitMic"),
                 AudioPipelineState.Listening  => L("VoiceOverlayWindow_StatusSpeakNow"),
                 AudioPipelineState.Processing => L("VoiceOverlayWindow_StatusTranscribing"),
@@ -243,13 +243,13 @@ public sealed partial class VoiceOverlayWindow : WindowEx
         StartStopIcon.Glyph = isActive ? "\uE71A" : "\uE768"; // Stop / Play
         StartStopText.Text = isActive
             ? L("VoiceOverlayWindow_StopText")
-            : L("VoiceOverlayWindow_StartStopText.Text");
+            : L("VoiceOverlayWindow_ButtonStartListening");
         MuteButton.IsEnabled = isActive;
 
         if (!isActive)
         {
-            StatusBadge.Text = L("VoiceOverlayWindow_StatusBadge.Text");
-            StatusText.Text = L("VoiceOverlayWindow_StatusText.Text");
+            StatusBadge.Text = L("VoiceOverlayWindow_BadgeReady");
+            StatusText.Text = L("VoiceOverlayWindow_StatusReadyMessage");
             AudioLevelBar.Width = 0;
         }
     }

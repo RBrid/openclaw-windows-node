@@ -91,8 +91,6 @@ public sealed partial class CapabilitiesPage : Page
         SttCard.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         if (!enabled || hub.Settings == null) return;
 
-        SttLanguageTextBox.Text = hub.Settings.SttLanguage;
-        SttStatusText.Text = "";
         UpdateSttEngineHint(hub);
     }
 
@@ -100,11 +98,19 @@ public sealed partial class CapabilitiesPage : Page
     {
         // Whisper is the only engine. Surface model-readiness so the user
         // knows what (if anything) needs to happen before stt.* will work.
-        var voice = hub.VoiceServiceInstance;
-        var modelReady = voice?.IsWhisperReady ?? false;
-        var modelDownloading = voice?.IsWhisperDownloadingModel ?? false;
+        //
+        // Check the file directly via WhisperModelManager rather than going
+        // through hub.VoiceServiceInstance — that instance is only created
+        // by NodeService.RegisterCapabilities() at Connect time, so a user
+        // who toggled STT on but hasn't reconnected yet would see a stale
+        // "not downloaded" message even with the file on disk.
+        var modelName = hub.Settings?.SttModelName ?? "base";
+        var modelManager = new OpenClaw.Shared.Audio.WhisperModelManager(
+            SettingsManager.SettingsDirectoryPath, new AppLogger());
+        var modelDownloaded = modelManager.IsModelDownloaded(modelName);
+        var modelDownloading = hub.VoiceServiceInstance?.IsWhisperDownloadingModel ?? false;
 
-        if (modelReady)
+        if (modelDownloaded)
         {
             SttEngineHint.Text = "Whisper model is ready. Speech-to-text runs fully on this PC; no audio leaves the device.";
         }
@@ -122,53 +128,6 @@ public sealed partial class CapabilitiesPage : Page
     {
         // Navigate the Hub to the dedicated voice settings page.
         _hub?.NavigateTo("voice");
-    }
-
-    private void OnSttLanguageCommitted(object sender, RoutedEventArgs e)
-        => CommitSttLanguage();
-
-    private void OnSttLanguageKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == VirtualKey.Enter)
-        {
-            CommitSttLanguage();
-            e.Handled = true;
-        }
-    }
-
-    private void CommitSttLanguage()
-    {
-        if (_hub?.Settings == null) return;
-
-        var raw = SttLanguageTextBox.Text?.Trim() ?? "";
-        if (string.IsNullOrEmpty(raw))
-        {
-            // Empty input restores the "auto" default rather than persisting "".
-            raw = SttCapability.AutoLanguage;
-            SttLanguageTextBox.Text = raw;
-        }
-
-        // Reuse SttCapability.NormalizeLanguageTag to validate before saving
-        // so a typo in Settings doesn't ship a broken default to the engine.
-        // The validator accepts "auto" as a special sentinel.
-        var normalized = SttCapability.NormalizeLanguageTag(raw);
-        if (normalized == null)
-        {
-            // Privacy: do not echo the user-supplied text; the local UI is
-            // fine but the activity stream / support bundle path expects a
-            // sanitized failure category.
-            SttStatusText.Text = "Invalid BCP-47 tag — language not saved.";
-            return;
-        }
-
-        if (!string.Equals(_hub.Settings.SttLanguage, normalized, StringComparison.Ordinal))
-        {
-            _hub.Settings.SttLanguage = normalized;
-            _hub.Settings.Save();
-            _hub.RaiseSettingsSaved();
-        }
-        SttLanguageTextBox.Text = normalized;
-        SttStatusText.Text = $"Saved: {normalized}";
     }
 
     // ============================================================

@@ -39,30 +39,11 @@
                     <TextBlock x:Name="SttEngineHint"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" x:Uid="CapabilitiesPage_SttLanguageLabel" Text="Language" VerticalAlignment="Center"/>
-                        <TextBox Grid.Column="1" x:Name="SttLanguageTextBox"
-                                 x:Uid="CapabilitiesPage_SttLanguageTextBox"
-                                 PlaceholderText="auto"
-                                 LostFocus="OnSttLanguageCommitted"
-                                 KeyDown="OnSttLanguageKeyDown"/>
-                    </Grid>
-                    <TextBlock x:Uid="CapabilitiesPage_SttLanguageHelp"
-                               Text="BCP-47 tag (e.g. en-US, fr-FR, ja-JP) or 'auto' to let Whisper detect the language."
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                     <HyperlinkButton x:Name="SttMoreSettingsLink"
                                      x:Uid="CapabilitiesPage_SttMoreSettingsLink"
                                      Content="More voice settings…"
                                      Click="OnSttMoreSettingsClick"
                                      Padding="0"/>
-                    <TextBlock x:Name="SttStatusText"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
             </Border>
 

@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -17,8 +17,6 @@
       </xs:complexType>
     </xs:element>
   </xs:schema>
-  
-  
   <data name="SettingsConnectionHeader.Text" xml:space="preserve">
     <value>VERBINDING</value>
   </data>
@@ -31,7 +29,6 @@
   <data name="SettingsAdvancedHeader.Text" xml:space="preserve">
     <value>GEAVANCEERD (EXPERIMENTEEL)</value>
   </data>
-  
   <data name="SettingsGatewayUrlTextBox.Header" xml:space="preserve">
     <value>Gateway-URL</value>
   </data>
@@ -44,7 +41,6 @@
   <data name="SettingsTokenTextBox.PlaceholderText" xml:space="preserve">
     <value>Je API-token</value>
   </data>
-  
   <data name="SettingsAutoStartToggle.Header" xml:space="preserve">
     <value>Automatisch starten met Windows</value>
   </data>
@@ -57,7 +53,6 @@
   <data name="SettingsNodeModeToggle.Header" xml:space="preserve">
     <value>Node-modus inschakelen</value>
   </data>
-  
   <data name="SettingsSoundComboBox.Header" xml:space="preserve">
     <value>Geluid</value>
   </data>
@@ -70,14 +65,12 @@
   <data name="SettingsSoundSubtle.Content" xml:space="preserve">
     <value>Subtiel</value>
   </data>
-  
   <data name="SettingsNotifyForLabel.Text" xml:space="preserve">
     <value>Meldingen weergeven voor:</value>
   </data>
   <data name="SettingsNotifyFilterHint.Text" xml:space="preserve">
     <value>Filtert op trefwoorden in het bericht (bijv. 'e-mail', 'herinnering')</value>
   </data>
-  
   <data name="SettingsNotifyHealthCb.Content" xml:space="preserve">
     <value>Gezondheidsmeldingen</value>
   </data>
@@ -102,7 +95,6 @@
   <data name="SettingsNotifyInfoCb.Content" xml:space="preserve">
     <value>Informatieberichten</value>
   </data>
-  
   <data name="SettingsTestConnectionButton.Content" xml:space="preserve">
     <value>Testen</value>
   </data>
@@ -115,12 +107,9 @@
   <data name="SettingsCancelButton.Content" xml:space="preserve">
     <value>Annuleren</value>
   </data>
-  
   <data name="SettingsNodeModeDescription.Text" xml:space="preserve">
     <value>Wanneer ingeschakeld, kan deze pc opdrachten ontvangen van de agent (canvas, schermafbeeldingen, enz.)</value>
   </data>
-  
-  
   <data name="StatusUsageHeader.Text" xml:space="preserve">
     <value>GEBRUIK</value>
   </data>
@@ -154,7 +143,6 @@
   <data name="StatusRecentActivityHeader.Text" xml:space="preserve">
     <value>RECENTE ACTIVITEIT</value>
   </data>
-  
   <data name="StatusCostLabel.Text" xml:space="preserve">
     <value>Kosten (venster):</value>
   </data>
@@ -164,7 +152,6 @@
   <data name="StatusProvidersLabel.Text" xml:space="preserve">
     <value>Aanbieders:</value>
   </data>
-  
   <data name="StatusConnectedText.Text" xml:space="preserve">
     <value>Verbonden</value>
   </data>
@@ -198,7 +185,6 @@
   <data name="StatusCronDescription.Text" xml:space="preserve">
     <value>Open geplande automatiseringsbesturing wanneer de verbonden gateway dit ondersteunt.</value>
   </data>
-  
   <data name="StatusRefreshButton.Content" xml:space="preserve">
     <value>Vernieuwen</value>
   </data>
@@ -247,12 +233,9 @@
   <data name="StatusOpenStreamButton.Content" xml:space="preserve">
     <value>Stream openen</value>
   </data>
-  
-  
   <data name="ActivityStreamTitle.Text" xml:space="preserve">
     <value>⚡ Activiteitenstroom</value>
   </data>
-  
   <data name="ActivityFilterAll.Content" xml:space="preserve">
     <value>Alle activiteit</value>
   </data>
@@ -268,11 +251,9 @@
   <data name="ActivityFilterNotifications.Content" xml:space="preserve">
     <value>Meldingen</value>
   </data>
-  
   <data name="ActivityEmptyText.Text" xml:space="preserve">
     <value>Nog geen activiteit</value>
   </data>
-  
   <data name="ActivityOpenDashboardButton.Content" xml:space="preserve">
     <value>Dashboard openen</value>
   </data>
@@ -282,24 +263,18 @@
   <data name="ActivityCloseButton.Content" xml:space="preserve">
     <value>Sluiten</value>
   </data>
-  
-  
   <data name="NotificationHistoryTitle.Text" xml:space="preserve">
     <value>📋 Meldingsgeschiedenis</value>
   </data>
-  
   <data name="NotificationEmptyText.Text" xml:space="preserve">
     <value>Nog geen meldingen</value>
   </data>
-  
   <data name="NotificationClearAllButton.Content" xml:space="preserve">
     <value>Alles wissen</value>
   </data>
   <data name="NotificationCloseButton.Content" xml:space="preserve">
     <value>Sluiten</value>
   </data>
-  
-  
   <data name="WindowTitle_Settings" xml:space="preserve">
     <value>Instellingen — OpenClaw Tray</value>
   </data>
@@ -324,7 +299,6 @@
   <data name="WindowTitle_Update" xml:space="preserve">
     <value>OpenClaw-update</value>
   </data>
-  
   <data name="Status_Testing" xml:space="preserve">
     <value>Testen...</value>
   </data>
@@ -334,7 +308,6 @@
   <data name="Status_ConnectionFailed" xml:space="preserve">
     <value>❌ Verbinding mislukt</value>
   </data>
-  
   <data name="QuickSend_Header" xml:space="preserve">
     <value>📤 Snel verzenden</value>
   </data>
@@ -359,7 +332,6 @@
   <data name="QuickSend_ToastBody" xml:space="preserve">
     <value>Je bericht is verzonden naar OpenClaw.</value>
   </data>
-  
   <data name="Welcome_Title" xml:space="preserve">
     <value>Welkom bij OpenClaw!</value>
   </data>
@@ -384,7 +356,6 @@
   <data name="Welcome_OpenSettingsButton" xml:space="preserve">
     <value>Instellingen openen</value>
   </data>
-  
   <data name="Update_VersionAvailable" xml:space="preserve">
     <value>🎉 Versie {0} is beschikbaar!</value>
   </data>
@@ -403,7 +374,6 @@
   <data name="Update_DownloadButton" xml:space="preserve">
     <value>Downloaden en installeren</value>
   </data>
-  
   <data name="Menu_OpenDashboard" xml:space="preserve">
     <value>Dashboard openen</value>
   </data>
@@ -494,7 +464,6 @@
   <data name="Menu_RestartSshTunnel" xml:space="preserve">
     <value>SSH-tunnel opnieuw starten</value>
   </data>
-  
   <data name="Menu_StatusFormat" xml:space="preserve">
     <value>Toestand: {0}</value>
   </data>
@@ -531,18 +500,15 @@
   <data name="Menu_NodeDisconnected" xml:space="preserve">
     <value>⚪ Niet verbonden</value>
   </data>
-  
   <data name="TestNotification_Title" xml:space="preserve">
     <value>Testmelding</value>
   </data>
   <data name="TestNotification_Body" xml:space="preserve">
     <value>Dit is een testmelding van OpenClaw Tray.</value>
   </data>
-  
   <data name="Status_LastCheckFormat" xml:space="preserve">
     <value>Laatste controle: {0}</value>
   </data>
-  
   <data name="TimeAgo_JustNow" xml:space="preserve">
     <value>Zojuist</value>
   </data>
@@ -552,14 +518,12 @@
   <data name="TimeAgo_HoursFormat" xml:space="preserve">
     <value>{0}u geleden</value>
   </data>
-  
   <data name="Activity_ClickToOpen" xml:space="preserve">
     <value>Klik om te openen in het dashboard</value>
   </data>
   <data name="TimeAgo_DaysFormat" xml:space="preserve">
     <value>{0}d geleden</value>
   </data>
-  
   <data name="StatusDisplay_Connected" xml:space="preserve">
     <value>Verbonden</value>
   </data>
@@ -578,7 +542,6 @@
   <data name="Status_NotAvailable" xml:space="preserve">
     <value>n.v.t.</value>
   </data>
-  
   <data name="WindowTitle_Canvas" xml:space="preserve">
     <value>Canvasweergave</value>
   </data>
@@ -612,7 +575,6 @@
   <data name="A2UI_MultipleChoiceSelect" xml:space="preserve">
     <value>Kiezen...</value>
   </data>
-  
   <data name="WebChatErrorTitle.Text" xml:space="preserve">
     <value>Webchat niet beschikbaar</value>
   </data>
@@ -651,11 +613,9 @@ Gebruik een van deze opties:
 • Bij een zelfondertekend certificaat: importeer je gateway-CA/certificaat in Vertrouwde basiscertificeringsinstanties van Windows (certmgr.msc)
 • Of tunnel naar localhost: ssh -N -L 18789:localhost:18789 &lt;server&gt;</value>
   </data>
-  
   <data name="WindowTitle_TrayMenu" xml:space="preserve">
     <value>OpenClaw-menu</value>
   </data>
-  
   <data name="Toast_DeviceIdCopied" xml:space="preserve">
     <value>📋 Apparaat-ID gekopieerd</value>
   </data>
@@ -668,14 +628,12 @@ Gebruik een van deze opties:
   <data name="Toast_NodeSummaryCopiedDetail" xml:space="preserve">
     <value>{0} node(s) gekopieerd naar klembord</value>
   </data>
-  
   <data name="Toast_SessionActionFailed" xml:space="preserve">
     <value>❌ Sessieactie mislukt</value>
   </data>
   <data name="Toast_SessionActionFailedDetail" xml:space="preserve">
     <value>Kan verzoek niet naar gateway verzenden.</value>
   </data>
-  
   <data name="Toast_NodeModeActive" xml:space="preserve">
     <value>🔌 Node-modus actief</value>
   </data>
@@ -706,7 +664,6 @@ Gebruik een van deze opties:
   <data name="Toast_PairingRejectedDetail" xml:space="preserve">
     <value>De gateway heeft het koppelingsverzoek voor dit apparaat geweigerd.</value>
   </data>
-  
   <data name="Toast_HealthCheck" xml:space="preserve">
     <value>Statuscontrole</value>
   </data>
@@ -719,7 +676,6 @@ Gebruik een van deze opties:
   <data name="Toast_HealthCheckFailed" xml:space="preserve">
     <value>Statuscontrole mislukt</value>
   </data>
-  
   <data name="Toast_ScreenCaptured" xml:space="preserve">
     <value>📸 Schermafbeelding gemaakt</value>
   </data>
@@ -732,7 +688,6 @@ Gebruik een van deze opties:
   <data name="Toast_CameraBlockedDetail" xml:space="preserve">
     <value>Schakel cameratoegang in via Windows-privacyinstellingen voor OpenClaw Tray</value>
   </data>
-  
   <data name="Toast_ActivityStreamTip" xml:space="preserve">
     <value>⚡ Nieuw: Activiteitenstroom</value>
   </data>
@@ -742,7 +697,6 @@ Gebruik een van deze opties:
   <data name="Toast_ActivityStreamTipButton" xml:space="preserve">
     <value>Activiteitenstroom openen</value>
   </data>
-  
   <data name="Setup_Title" xml:space="preserve">
     <value>OpenClaw Instellen</value>
   </data>
@@ -893,7 +847,6 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="Setup_StepDone" xml:space="preserve">
     <value>Stap 3 van 3 — Gereed</value>
   </data>
-  
   <data name="SettingsDeveloperModeHeader.Text" xml:space="preserve">
     <value>ONTWIKKELAARSMODUS</value>
   </data>
@@ -927,7 +880,6 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="Mcp_Status_FailedToStart" xml:space="preserve">
     <value>Starten mislukt: </value>
   </data>
-  
   <data name="SettingsMcpTokenLabel.Text" xml:space="preserve">
     <value>Bearer-token:</value>
   </data>
@@ -976,14 +928,12 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="SettingsMcpTokenResetDialog_CloseButton" xml:space="preserve">
     <value>Annuleren</value>
   </data>
-  
   <data name="WindowTitle_Downloading" xml:space="preserve">
     <value>Update downloaden...</value>
   </data>
   <data name="Download_ProgressText" xml:space="preserve">
     <value>Update downloaden...</value>
   </data>
-  
   <data name="UrlApproval_Caption" xml:space="preserve">
     <value>OpenClaw — URL goedkeuren</value>
   </data>
@@ -1470,7 +1420,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="ClearButton.Content" xml:space="preserve">
     <value>Wissen</value>
   </data>
-<data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
+  <data name="BindingsPage_TextBlock_16.Text" xml:space="preserve">
     <value>🔀 Koppelingen</value>
   </data>
   <data name="BindingsPage_TextBlock_17.Text" xml:space="preserve">
@@ -1704,7 +1654,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="CronPage_TextBlock_120.Text" xml:space="preserve">
     <value>Geen cron-taken geconfigureerd</value>
   </data>
-<data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
+  <data name="DebugPage_TextBlock_8.Text" xml:space="preserve">
     <value>🐛 Foutopsporing</value>
   </data>
   <data name="DebugPage_TextBlock_14.Text" xml:space="preserve">
@@ -1758,7 +1708,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="DebugPage_Button_114.Content" xml:space="preserve">
     <value>📋 Ondersteuningscontext kopiëren</value>
   </data>
-<data name="StatusHeadline.Text" xml:space="preserve">
+  <data name="StatusHeadline.Text" xml:space="preserve">
     <value>Niet verbonden met gateway</value>
   </data>
   <data name="ScanButton.Content" xml:space="preserve">
@@ -2274,21 +2224,11 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="CronPageRemoveJobToolTip.Content" xml:space="preserve">
     <value>Taak verwijderen</value>
   </data>
-  
   <data name="CapabilitiesPage_SttCardDescription.Text" xml:space="preserve">
     <value>Herkent microfoonaudio lokaal op deze pc met Whisper. Het model wordt één keer gedownload bij het eerste gebruik.</value>
   </data>
   <data name="CapabilitiesPage_SttCardHeader.Text" xml:space="preserve">
     <value>🎤 Spraak-naar-tekst</value>
-  </data>
-  <data name="CapabilitiesPage_SttLanguageHelp.Text" xml:space="preserve">
-    <value>BCP-47-tag (bijv. en-US, fr-FR, ja-JP) of 'auto' om Whisper de taal te laten detecteren.</value>
-  </data>
-  <data name="CapabilitiesPage_SttLanguageLabel.Text" xml:space="preserve">
-    <value>Taal</value>
-  </data>
-  <data name="CapabilitiesPage_SttLanguageTextBox.PlaceholderText" xml:space="preserve">
-    <value>auto</value>
   </data>
   <data name="CapabilitiesPage_SttMoreSettingsLink.Content" xml:space="preserve">
     <value>Meer spraakinstellingen…</value>
@@ -2326,7 +2266,6 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="CapabilitiesPage_TtsProviderWindows.Content" xml:space="preserve">
     <value>Ingebouwde Windows-spraak</value>
   </data>
-
   <data name="VoiceSettingsPage_PageTitle.Text" xml:space="preserve">
     <value>🎙️ Spraak en audio</value>
   </data>
@@ -2614,4 +2553,23 @@ Voer op uw gateway-host (Mac/Linux) uit:
   </data>
   <data name="VoiceOverlayWindow_winexWindowEx_2.Title" xml:space="preserve">
     <value>Companion Voice</value>
-  </data></root>
+  </data>
+  <data name="VoiceOverlayWindow_BadgeReady" xml:space="preserve">
+    <value>Gereed</value>
+  </data>
+  <data name="VoiceOverlayWindow_StatusReadyMessage" xml:space="preserve">
+    <value>Druk op Start om te beginnen</value>
+  </data>
+  <data name="VoiceOverlayWindow_ButtonStartListening" xml:space="preserve">
+    <value>Beginnen met luisteren</value>
+  </data>
+  <data name="VoiceSettingsPage_ButtonDownloadModel" xml:space="preserve">
+    <value>Model downloaden</value>
+  </data>
+  <data name="VoiceSettingsPage_PiperButtonDownloadVoice" xml:space="preserve">
+    <value>Stem downloaden</value>
+  </data>
+  <data name="VoiceSettingsPage_PreviewVoiceButtonContent" xml:space="preserve">
+    <value>▶ Voorbeeld van stem</value>
+  </data>
+</root>

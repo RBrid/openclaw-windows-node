@@ -50,6 +50,11 @@ public sealed class AudioPipeline : IAsyncDisposable
     // UX than the user noticing one missed segment.
     private int _inFlightTranscriptions;
     private const int MaxConcurrentTranscriptions = 2;
+    // Flag set by StopAsync so TranscribeSamplesAsync can distinguish
+    // "Whisper actually failed" from "Whisper was interrupted by our own
+    // cancel during shutdown" — the latter often surfaces as a misleading
+    // "Failed to encode audio features" exception.
+    private volatile bool _isStopping;
 
     // Fixed-duration capture mode: when set, OnDataAvailable bypasses the
     // VAD pipeline entirely and just appends every chunk to
@@ -225,33 +230,50 @@ public sealed class AudioPipeline : IAsyncDisposable
         if (_state == AudioPipelineState.Stopped)
             return;
 
-        // Order matters here. Previously we cancelled `_cts` first and THEN
-        // tried to flush the speech buffer — but the flush passed `_cts.Token`
-        // straight into Whisper.net, which honored the cancel and dropped the
-        // final utterance. Now:
-        //
-        //   1. Stop capturing new audio so the buffer doesn't grow further.
-        //   2. Flush any buffered speech using a fresh (non-cancelled) token
-        //      so the last utterance actually reaches Whisper.
-        //   3. Cancel `_cts` to stop background transcription tasks that
-        //      are in flight from earlier segments.
-        //   4. Tear down capture resources.
-        if (_capture != null)
+        _isStopping = true;
+        try
         {
-            try { _capture.StopRecording(); }
-            catch (Exception ex) { _logger.Error("Error stopping capture", ex); }
-        }
+            // Order matters here. Previously we cancelled `_cts` first and THEN
+            // tried to flush the speech buffer — but the flush passed `_cts.Token`
+            // straight into Whisper.net, which honored the cancel and dropped the
+            // final utterance. Now:
+            //
+            //   1. Stop capturing new audio so the buffer doesn't grow further.
+            //   2. Wait briefly for any in-flight transcriptions (Task.Run-spawned
+            //      from earlier VAD bursts) to finish — so the user's last
+            //      utterance reaches Whisper instead of being killed mid-encode.
+            //   3. Flush any buffered speech using a fresh (non-cancelled) token
+            //      so anything left over also reaches Whisper.
+            //   4. Cancel `_cts` to stop background work that hasn't drained yet.
+            //   5. Tear down capture resources.
+            if (_capture != null)
+            {
+                try { _capture.StopRecording(); }
+                catch (Exception ex) { _logger.Error("Error stopping capture", ex); }
+            }
 
-        if (_speechBuffer.Count > 0 && _stt.IsModelLoaded)
+            // Drain in-flight transcriptions, capped at 3 s so Stop never hangs.
+            var drainDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+            while (Volatile.Read(ref _inFlightTranscriptions) > 0 && DateTime.UtcNow < drainDeadline)
+            {
+                await Task.Delay(50).ConfigureAwait(false);
+            }
+
+            if (_speechBuffer.Count > 0 && _stt.IsModelLoaded)
+            {
+                await FlushSpeechBufferAsync();
+            }
+
+            _cts?.Cancel();
+
+            CleanupCapture();
+            SetState(AudioPipelineState.Stopped);
+            _logger.Info("Audio pipeline stopped");
+        }
+        finally
         {
-            await FlushSpeechBufferAsync();
+            _isStopping = false;
         }
-
-        _cts?.Cancel();
-
-        CleanupCapture();
-        SetState(AudioPipelineState.Stopped);
-        _logger.Info("Audio pipeline stopped");
     }
 
     private int _dataCallbackCount;
@@ -473,8 +495,20 @@ public sealed class AudioPipeline : IAsyncDisposable
         }
         catch (Exception ex)
         {
+            // If we're tearing the pipeline down, mid-encode interruptions
+            // surface from Whisper.net as misleading exceptions like
+            // "Failed to encode audio features." instead of a clean
+            // OperationCanceledException. Suppress those — the user already
+            // knows they pressed Stop.
+            if (_isStopping || (_cts?.IsCancellationRequested ?? false))
+            {
+                _logger.Info($"Transcription interrupted during shutdown ({ex.GetType().Name})");
+                return;
+            }
             _logger.Error("Transcription failed", ex);
-            try { DiagnosticMessage?.Invoke($"⚠️ Transcription error: {ex.Message}"); } catch { }
+            // Sanitized — the raw ex.Message can include sample lengths,
+            // language tags, or other audio-shape detail.
+            try { DiagnosticMessage?.Invoke("⚠️ Transcription error"); } catch { }
         }
         finally
         {
