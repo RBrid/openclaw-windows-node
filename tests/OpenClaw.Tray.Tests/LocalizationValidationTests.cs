@@ -30,6 +30,9 @@ public class LocalizationValidationTests
         // SttCapability.NormalizeLanguageTag, "eleven_multilingual_v2" is
         // an ElevenLabs model identifier, "ElevenLabs" is a brand name.
         "CapabilitiesPage_SttLanguageTextBox.PlaceholderText",
+        // VoiceOverlayWindow window-title key — matches the convention
+        // for ChatWindow / HubWindow / CanvasWindow / TrayMenuWindow.
+        "VoiceOverlayWindow_winexWindowEx_2.Title",
         "CapabilitiesPage_TtsElevenLabsModel.PlaceholderText",
         "CapabilitiesPage_TtsProviderElevenLabs.Content",
         // VoiceSettingsPage_StatusError is "❌ {0}" — emoji + format placeholder

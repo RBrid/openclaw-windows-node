@@ -2679,4 +2679,6 @@ On your gateway host (Mac/Linux), run:
   <data name="VoiceOverlayWindow_StatusErrorOccurred" xml:space="preserve">
     <value>An error occurred</value>
   </data>
-</root>
+  <data name="VoiceOverlayWindow_winexWindowEx_2.Title" xml:space="preserve">
+    <value>Companion Voice</value>
+  </data></root>

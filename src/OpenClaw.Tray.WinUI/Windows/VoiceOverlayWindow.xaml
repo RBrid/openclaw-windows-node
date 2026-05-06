@@ -1,5 +1,6 @@
 <winex:WindowEx
     x:Class="OpenClawTray.Windows.VoiceOverlayWindow"
+    x:Uid="VoiceOverlayWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:winex="using:WinUIEx"
