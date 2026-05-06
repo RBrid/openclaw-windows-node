@@ -2670,7 +2670,19 @@ public partial class App : Application
             // Show without stealing focus — used by right-click on the
             // tray icon where the popup needs to remain the foreground
             // window (popups light-dismiss if focus moves away).
-            try { _hubWindow.AppWindow.Show(activateWindow: false); } catch { /* swallow */ }
+            // If the Hub was minimized, restore it first so it actually
+            // becomes visible behind the popup; otherwise Show(false)
+            // is a no-op on a minimized window.
+            try
+            {
+                if (_hubWindow.AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter op
+                    && op.State == Microsoft.UI.Windowing.OverlappedPresenterState.Minimized)
+                {
+                    op.Restore(activateWindow: false);
+                }
+                _hubWindow.AppWindow.Show(activateWindow: false);
+            }
+            catch { /* swallow */ }
         }
     }
 

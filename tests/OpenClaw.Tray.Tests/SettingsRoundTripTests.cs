@@ -173,7 +173,22 @@ public class SettingsRoundTripTests
         Assert.Null(settings.SkippedUpdateTag);
         Assert.True(settings.NotifyChatResponses);
         Assert.True(settings.PreferStructuredCategories);
+        // HubNavPaneOpen defaults to true (NavView starts expanded for new
+        // installs and for any settings file that predates the field).
+        Assert.True(settings.HubNavPaneOpen);
         Assert.Null(settings.UserRules);
+    }
+
+    [Fact]
+    public void HubNavPaneOpen_DefaultsTrue_ForEmptyJson()
+    {
+        // Existing users have a settings file written before HubNavPaneOpen
+        // existed. The default-true initializer must survive deserialization
+        // of a missing field so the NavView lands expanded for them, not
+        // silently collapsed.
+        var settings = SettingsData.FromJson("{}");
+        Assert.NotNull(settings);
+        Assert.True(settings!.HubNavPaneOpen);
     }
 
     [Fact]
@@ -228,6 +243,8 @@ public class SettingsRoundTripTests
         Assert.False(settings.HasSeenActivityStreamTip);
         Assert.Null(settings.SkippedUpdateTag);
         Assert.True(settings.GlobalHotkeyEnabled);
+        // HubNavPaneOpen wasn't in this older JSON shape; default true.
+        Assert.True(settings.HubNavPaneOpen);
         Assert.Null(settings.UserRules);
     }
 
