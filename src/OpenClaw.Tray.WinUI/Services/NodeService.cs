@@ -1367,7 +1367,13 @@ public sealed class NodeService : IDisposable
     {
         if (_voiceService == null)
             throw new InvalidOperationException("Voice service not available");
-        if (!_voiceService.IsWhisperReady)
+        // Check the file on disk, NOT IsWhisperReady (which is "loaded into
+        // memory"). The TranscribeFixedDurationAsync path calls
+        // EnsureInitializedAsync internally; that triggers the lazy
+        // file→memory load. Failing here on a freshly-launched tray that
+        // has the file but hasn't loaded it yet would be a paper cut for
+        // every MCP caller.
+        if (!_voiceService.IsModelDownloaded)
             throw new InvalidOperationException("Whisper model not downloaded");
 
         // True fixed-duration capture (no VAD-based early termination) so
@@ -1401,7 +1407,9 @@ public sealed class NodeService : IDisposable
 
         if (_voiceService == null)
             throw new InvalidOperationException("Voice service not available");
-        if (!_voiceService.IsWhisperReady)
+        // See the OnSttTranscribeAsync comment: gate on file presence, not
+        // on the in-memory load state. ListenOnceAsync handles the lazy load.
+        if (!_voiceService.IsModelDownloaded)
             throw new InvalidOperationException("Whisper model not downloaded");
 
         var result = await _voiceService.ListenOnceAsync(args, cancellationToken).ConfigureAwait(false);
