@@ -39,7 +39,7 @@ public sealed class PiperVoiceManager
     // from two callers (e.g. UI and a programmatic caller). Static so two
     // PiperVoiceManager instances over the same data directory still
     // coalesce against the same in-flight task.
-    private static readonly ConcurrentDictionary<string, Task> InFlightDownloads = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Lazy<Task>> InFlightDownloads = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Curated catalog of Piper voices we offer in the UI. Each entry is
@@ -148,20 +148,11 @@ public sealed class PiperVoiceManager
         EnsureExtractorAvailable();
 
         var key = info.VoiceId;
-        var task = InFlightDownloads.GetOrAdd(key, _ => DownloadVoiceCoreAsync(info, progress, cancellationToken));
-        return AwaitAndCleanup(key, task);
-    }
-
-    private async Task AwaitAndCleanup(string key, Task task)
-    {
-        try
-        {
-            await task.ConfigureAwait(false);
-        }
-        finally
-        {
-            InFlightDownloads.TryRemove(new KeyValuePair<string, Task>(key, task));
-        }
+        return SingleFlightDownload.RunAsync(
+            InFlightDownloads,
+            key,
+            token => DownloadVoiceCoreAsync(info, progress, token),
+            cancellationToken);
     }
 
     private async Task DownloadVoiceCoreAsync(

@@ -22,7 +22,7 @@ public sealed class WhisperModelManager
     // model would otherwise both write the same .tmp file. Static so an
     // additional manager instance constructed elsewhere (e.g. the Settings
     // page's status-only check) doesn't bypass the lock.
-    private static readonly ConcurrentDictionary<string, Task> InFlightDownloads = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Lazy<Task>> InFlightDownloads = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Known Whisper model definitions.
@@ -95,26 +95,11 @@ public sealed class WhisperModelManager
         // Use the canonical key (FileName) so two callers that pass "base"
         // and "ggml-base.bin" still coalesce.
         var key = info.FileName;
-        var task = InFlightDownloads.GetOrAdd(key, _ => DownloadModelCoreAsync(info, destPath, progress, cancellationToken));
-        // Whichever caller created the task is also responsible for clearing
-        // the slot. Subsequent callers just await the same Task; if it faults
-        // they all see the same exception. Cancellation linkage is honored
-        // by the Core method via the token captured in the GetOrAdd factory.
-        return AwaitAndCleanup(key, task);
-    }
-
-    private async Task AwaitAndCleanup(string key, Task task)
-    {
-        try
-        {
-            await task.ConfigureAwait(false);
-        }
-        finally
-        {
-            // Only remove if still the same task (so a fresh start after
-            // failure isn't blocked by the old completed entry).
-            InFlightDownloads.TryRemove(new KeyValuePair<string, Task>(key, task));
-        }
+        return SingleFlightDownload.RunAsync(
+            InFlightDownloads,
+            key,
+            token => DownloadModelCoreAsync(info, destPath, progress, token),
+            cancellationToken);
     }
 
     private async Task DownloadModelCoreAsync(
