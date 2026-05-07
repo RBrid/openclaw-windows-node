@@ -51,6 +51,21 @@ public partial class App : Application
     public OpenClawTray.Chat.OpenClawChatDataProvider? ChatProvider => _chatProvider;
 
     /// <summary>
+    /// Live <see cref="SettingsManager"/> used by the tray. Exposed so windows
+    /// that aren't owned by the Hub (e.g. <c>ChatWindow</c>) can read current
+    /// preferences without taking a constructor dependency.
+    /// </summary>
+    public SettingsManager? Settings => _settings;
+
+    /// <summary>
+    /// Raised after the tray-wide settings have been saved (either via the
+    /// SettingsPage Save button or a direct toggle from the tray menu).
+    /// Subscribers can refresh UI that depends on a setting (e.g. switching
+    /// the chat surface between native Reactor and WebView2).
+    /// </summary>
+    public event EventHandler? SettingsChanged;
+
+    /// <summary>
     /// Ensures the managed SSH tunnel is started using the current settings.
     /// Used by the onboarding ConnectionPage when the user picks the SSH topology.
     /// </summary>
@@ -2679,6 +2694,10 @@ public partial class App : Application
             _hubWindow.GatewayClient = _gatewayClient;
             _hubWindow.CurrentStatus = _currentStatus;
         }
+
+        // Notify ad-hoc listeners (e.g. ChatWindow may be alive but not
+        // owned by the hub) that settings have changed.
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

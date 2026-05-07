@@ -10,12 +10,30 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Toolbar — only "Open in Browser" remains; Reactor surface owns its own chrome -->
+        <!-- Toolbar — Home/Refresh/DevTools only meaningful when WebView2 mode is active. -->
         <Border Grid.Row="0"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="0,0,0,1" Padding="8">
             <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button x:Name="HomeButton" AutomationProperties.AutomationId="ChatHomeButton"
+                        Width="36" Height="36" Padding="0"
+                        Visibility="Collapsed"
+                        Click="OnHome">
+                    <ToolTipService.ToolTip>
+                        <ToolTip x:Uid="ChatPageHomeToolTip" Content="Home"/>
+                    </ToolTipService.ToolTip>
+                    <FontIcon Glyph="&#xE80F;" FontSize="14"/>
+                </Button>
+                <Button x:Name="RefreshButton" AutomationProperties.AutomationId="ChatRefreshButton"
+                        Width="36" Height="36" Padding="0"
+                        Visibility="Collapsed"
+                        Click="OnRefresh">
+                    <ToolTipService.ToolTip>
+                        <ToolTip x:Uid="ChatPageRefreshToolTip" Content="Refresh"/>
+                    </ToolTipService.ToolTip>
+                    <FontIcon Glyph="&#xE72C;" FontSize="14"/>
+                </Button>
                 <Button x:Name="OpenInBrowserButton" AutomationProperties.AutomationId="ChatOpenInBrowserButton"
                         Width="36" Height="36" Padding="0"
                         Click="OnPopout">
@@ -24,13 +42,29 @@
                     </ToolTipService.ToolTip>
                     <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
                 </Button>
+                <Button x:Name="DevToolsButton" AutomationProperties.AutomationId="ChatDevToolsButton"
+                        Width="36" Height="36" Padding="0"
+                        Visibility="Collapsed"
+                        Click="OnDevTools">
+                    <ToolTipService.ToolTip>
+                        <ToolTip x:Uid="ChatPageDeveloperToolsToolTip" Content="Developer Tools"/>
+                    </ToolTipService.ToolTip>
+                    <FontIcon Glyph="&#xE90F;" FontSize="14"/>
+                </Button>
             </StackPanel>
         </Border>
 
-        <!-- Reactor host: native chat surface mounts its tree into this Border -->
+        <!-- Reactor host: native chat surface mounts its tree into this Border (default UI). -->
         <Border x:Name="ChatHost" Grid.Row="1"/>
 
-        <!-- Disconnected placeholder (shown when no provider yet) -->
+        <!-- WebView2 host: only created/used when "Use standard Gateway Chat interface" is enabled. -->
+        <WebView2 x:Name="WebView" Grid.Row="1" Visibility="Collapsed"/>
+
+        <!-- Loading spinner shown while WebView2 navigates. -->
+        <ProgressRing x:Name="LoadingRing" Grid.Row="1" IsActive="False"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+        <!-- Disconnected placeholder (shown when no provider yet). -->
         <StackPanel x:Name="PlaceholderPanel" Grid.Row="1"
                     VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
             <TextBlock Text="💬" FontSize="48" HorizontalAlignment="Center"/>
@@ -38,5 +72,16 @@
                        Style="{StaticResource SubtitleTextBlockStyle}"
                        HorizontalAlignment="Center"/>
         </StackPanel>
+
+        <!-- WebView2 navigation error panel. -->
+        <ScrollViewer x:Name="ErrorPanel" Grid.Row="1" Visibility="Collapsed" Padding="20">
+            <StackPanel Spacing="12">
+                <TextBlock Text="Web Chat Unavailable" Style="{StaticResource SubtitleTextBlockStyle}"
+                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                <TextBlock x:Name="ErrorText" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                           FontFamily="Consolas" Style="{StaticResource CaptionTextBlockStyle}"/>
+                <Button Content="Open in Browser Instead" Click="OnPopout" HorizontalAlignment="Left"/>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Page>

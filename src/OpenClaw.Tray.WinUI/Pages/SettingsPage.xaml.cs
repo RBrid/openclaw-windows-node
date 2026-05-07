@@ -35,6 +35,7 @@ public sealed partial class SettingsPage : Page
     {
         AutoStartToggle.IsOn = settings.AutoStart;
         GlobalHotkeyToggle.IsOn = settings.GlobalHotkeyEnabled;
+        UseLegacyWebChatToggle.IsOn = settings.UseLegacyWebChat;
         NotificationsToggle.IsOn = settings.ShowNotifications;
 
         for (int i = 0; i < NotificationSoundComboBox.Items.Count; i++)
@@ -66,6 +67,7 @@ public sealed partial class SettingsPage : Page
         var s = _hub.Settings;
         s.AutoStart = AutoStartToggle.IsOn;
         s.GlobalHotkeyEnabled = GlobalHotkeyToggle.IsOn;
+        s.UseLegacyWebChat = UseLegacyWebChatToggle.IsOn;
         s.ShowNotifications = NotificationsToggle.IsOn;
 
         if (NotificationSoundComboBox.SelectedItem is ComboBoxItem item)

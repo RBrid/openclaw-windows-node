@@ -1,5 +1,6 @@
 using ChatSample.Chat.Model;
 using Microsoft.UI.Xaml;
+using Microsoft.Web.WebView2.Core;
 using OpenClaw.Shared;
 using OpenClawTray.Chat;
 using OpenClawTray.Helpers;
@@ -7,6 +8,7 @@ using OpenClawTray.Services;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using WinUIEx;
 
 namespace OpenClawTray.Windows;
@@ -17,6 +19,8 @@ public sealed partial class ChatWindow : WindowEx
     private readonly string _token;
     private readonly string _chatUrl;
     private IDisposable? _reactorHost;
+    private bool _webViewInitialized;
+    private bool _webViewMode;
     public bool IsClosed { get; private set; }
 
     [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
@@ -75,11 +79,129 @@ public sealed partial class ChatWindow : WindowEx
         // Hide instead of close — preserves Reactor state for instant reopen
         Closed += OnWindowClosing;
 
+        // Subscribe to global SettingsChanged so the surface swaps when the
+        // user toggles "Use standard Gateway Chat interface" while the
+        // pre-warmed window is alive.
+        if (App.Current is App app)
+            app.SettingsChanged += OnAppSettingsChanged;
+
+        ApplyChatSurface();
+    }
+
+    private void OnAppSettingsChanged(object? sender, EventArgs e) => ApplyChatSurface();
+
+    private void ApplyChatSurface()
+    {
+        var useLegacy = (App.Current as App)?.Settings?.UseLegacyWebChat ?? false;
+        if (useLegacy)
+            ShowWebViewSurface();
+        else
+            ShowReactorSurface();
+    }
+
+    private void ShowReactorSurface()
+    {
+        _webViewMode = false;
+        WebView.Visibility = Visibility.Collapsed;
+        LoadingRing.IsActive = false;
+        LoadingRing.Visibility = Visibility.Collapsed;
+        ErrorPanel.Visibility = Visibility.Collapsed;
         TryMountReactorChat();
+    }
+
+    private void ShowWebViewSurface()
+    {
+        _webViewMode = true;
+
+        // Tear down Reactor so the WebView2 owns the row.
+        var host = _reactorHost;
+        _reactorHost = null;
+        try { host?.Dispose(); } catch { /* tear-down race — non-fatal */ }
+
+        ChatHost.Visibility = Visibility.Collapsed;
+        PlaceholderPanel.Visibility = Visibility.Collapsed;
+
+        if (_webViewInitialized)
+        {
+            ErrorPanel.Visibility = Visibility.Collapsed;
+            WebView.Visibility = Visibility.Visible;
+            if (!string.IsNullOrEmpty(_chatUrl))
+                WebView.CoreWebView2?.Navigate(_chatUrl);
+            return;
+        }
+
+        _ = InitializeWebViewAsync();
+    }
+
+    private async Task InitializeWebViewAsync()
+    {
+        try
+        {
+            PlaceholderPanel.Visibility = Visibility.Collapsed;
+            LoadingRing.IsActive = true;
+            LoadingRing.Visibility = Visibility.Visible;
+
+            await GatewayChatHelper.InitializeWebView2Async(WebView);
+            _webViewInitialized = true;
+
+            WebView.CoreWebView2.NavigationCompleted += (s, e) =>
+            {
+                LoadingRing.IsActive = false;
+                LoadingRing.Visibility = Visibility.Collapsed;
+                if (!e.IsSuccess)
+                {
+                    WebView.Visibility = Visibility.Collapsed;
+                    ErrorPanel.Visibility = Visibility.Visible;
+                    ErrorText.Text = e.WebErrorStatus switch
+                    {
+                        CoreWebView2WebErrorStatus.CannotConnect or
+                        CoreWebView2WebErrorStatus.ConnectionReset or
+                        CoreWebView2WebErrorStatus.ServerUnreachable or
+                        CoreWebView2WebErrorStatus.Timeout =>
+                            "The gateway is not reachable. Check that it is running and try again.",
+                        _ => $"Unable to load chat. Please try again. ({e.WebErrorStatus})"
+                    };
+                }
+                else
+                {
+                    ErrorPanel.Visibility = Visibility.Collapsed;
+                    WebView.Visibility = Visibility.Visible;
+                }
+            };
+
+            WebView.Visibility = Visibility.Visible;
+            if (!string.IsNullOrEmpty(_chatUrl))
+                WebView.CoreWebView2.Navigate(_chatUrl);
+        }
+        catch (Exception ex)
+        {
+            LoadingRing.IsActive = false;
+            LoadingRing.Visibility = Visibility.Collapsed;
+            PlaceholderPanel.Visibility = Visibility.Collapsed;
+            ErrorPanel.Visibility = Visibility.Visible;
+            ErrorText.Text = $"WebView2 failed: {ex.Message}";
+        }
+    }
+
+    private void OnRetry(object sender, RoutedEventArgs e)
+    {
+        if (!_webViewInitialized || string.IsNullOrEmpty(_chatUrl)) return;
+        ErrorPanel.Visibility = Visibility.Collapsed;
+        LoadingRing.IsActive = true;
+        LoadingRing.Visibility = Visibility.Visible;
+        WebView.Visibility = Visibility.Visible;
+        WebView.CoreWebView2?.Navigate(_chatUrl);
     }
 
     private void TryMountReactorChat()
     {
+        if (_reactorHost is not null)
+        {
+            PlaceholderPanel.Visibility = Visibility.Collapsed;
+            ChatHost.Visibility = Visibility.Visible;
+            return;
+        }
+
         var provider = (App.Current as App)?.ChatProvider;
         if (provider is null)
         {
@@ -138,8 +260,9 @@ public sealed partial class ChatWindow : WindowEx
         this.Move(x, y);
         this.SetWindowSize(480, 640);
 
-        // Mount on first show if the gateway only just came online.
-        if (_reactorHost is null) TryMountReactorChat();
+        // Provider may have arrived after construction — re-apply surface so
+        // a Reactor-mode window swaps placeholder → live tree on first show.
+        ApplyChatSurface();
 
         this.Show();
         SetForegroundWindow(hwnd);
@@ -159,6 +282,8 @@ public sealed partial class ChatWindow : WindowEx
     public void ForceClose()
     {
         Closed -= OnWindowClosing;
+        if (App.Current is App app)
+            app.SettingsChanged -= OnAppSettingsChanged;
         IsClosed = true;
         try { _reactorHost?.Dispose(); } catch { }
         _reactorHost = null;

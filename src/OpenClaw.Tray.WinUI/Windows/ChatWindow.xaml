@@ -50,6 +50,11 @@
         <!-- Reactor host -->
         <Border x:Name="ChatHost" Grid.Row="1"/>
 
+        <!-- WebView2 host: only created/used when "Use standard Gateway Chat interface" is enabled. -->
+        <WebView2 x:Name="WebView" Grid.Row="1" Visibility="Collapsed"/>
+        <ProgressRing x:Name="LoadingRing" Grid.Row="1" IsActive="False"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
         <!-- Placeholder when not connected to gateway yet -->
         <StackPanel x:Name="PlaceholderPanel" Grid.Row="1"
                     VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
@@ -57,5 +62,16 @@
             <TextBlock x:Uid="ChatWindow_TextBlock_60" Text="Connect to gateway to start chatting"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center"/>
         </StackPanel>
+
+        <!-- WebView2 navigation error panel. -->
+        <ScrollViewer x:Name="ErrorPanel" Grid.Row="1" Visibility="Collapsed" Padding="20">
+            <StackPanel Spacing="12" VerticalAlignment="Center">
+                <TextBlock Text="Web Chat Unavailable" Style="{StaticResource SubtitleTextBlockStyle}"
+                           Foreground="{ThemeResource SystemFillColorCriticalBrush}"/>
+                <TextBlock x:Name="ErrorText" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                           FontFamily="Consolas" Style="{StaticResource CaptionTextBlockStyle}"/>
+                <Button Content="Retry" Click="OnRetry" HorizontalAlignment="Left"/>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </winex:WindowEx>
