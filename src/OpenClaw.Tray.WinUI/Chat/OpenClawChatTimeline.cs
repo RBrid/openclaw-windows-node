@@ -279,7 +279,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 .Set(t => t.FontSize = 12)
                 .HAlign(align);
 
-        Element RenderUserEntry(ChatTimelineItem entry)
+        Element RenderUserEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
         {
             var bubble = Border(
                 TextBlock(entry.Text)
@@ -288,25 +288,39 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             ).Background(userBubbleBrush).CornerRadius(14)
              .Set(b => b.MaxWidth = 560);
 
-            var avatar = AvatarCircle("🧑", userAvatarBrush);
+            // Show the avatar only on the LAST entry in a same-sender burst.
+            // Mid-burst messages get a 28px-wide spacer so the bubbles still
+            // align with the burst's avatar slot.
+            Element rightSlot = endsBurst
+                ? AvatarCircle("🧑", userAvatarBrush).VAlign(VerticalAlignment.Bottom)
+                : Border(Empty()).Size(28, 28);
 
             var bubbleRow = (FlexRow(
                 bubble,
-                avatar.VAlign(VerticalAlignment.Bottom)
+                rightSlot
             ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Right);
 
-            var entryMeta = MetaFor(entry.Id);
-            var timeStr = FormatTime(entryMeta?.Timestamp);
-            var footerText = string.IsNullOrEmpty(timeStr)
-                ? userSender
-                : $"{userSender} · {timeStr}";
+            // Footer only on the last entry of a burst.
+            Element footer = Empty();
+            if (endsBurst)
+            {
+                var entryMeta = MetaFor(entry.Id);
+                var timeStr = FormatTime(entryMeta?.Timestamp);
+                var footerText = string.IsNullOrEmpty(timeStr)
+                    ? userSender
+                    : $"{userSender} · {timeStr}";
+                footer = FooterCaption(footerText, HorizontalAlignment.Right).Margin(0, 2, 40, 0);
+            }
 
-            return VStack(2, bubbleRow, FooterCaption(footerText, HorizontalAlignment.Right).Margin(0, 2, 40, 0))
+            // Tighter top margin for mid-burst entries to visually group them.
+            var topMargin = startsBurst ? 8.0 : 1.0;
+            var bottomMargin = endsBurst ? 8.0 : 1.0;
+            return VStack(2, bubbleRow, footer)
                 .HAlign(HorizontalAlignment.Stretch)
-                .Margin(60, 8, 24, 8);
+                .Margin(60, topMargin, 24, bottomMargin);
         }
 
-        Element RenderAssistantEntry(ChatTimelineItem entry)
+        Element RenderAssistantEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
         {
             // Skip the brief moment between turn-start and the first delta
             // when the assistant entry exists but has no text yet — otherwise
@@ -314,7 +328,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             if (string.IsNullOrEmpty(entry.Text))
                 return Empty();
 
-            var avatar = AvatarCircle("★", assistantAvatarBrush);
+            // Avatar shown only on the FIRST entry of a same-sender burst,
+            // since the chat reads top-down and the eye anchors on the first
+            // turn from the agent in a stretch.
+            Element leftSlot = startsBurst
+                ? AvatarCircle("★", assistantAvatarBrush).VAlign(VerticalAlignment.Top)
+                : Border(Empty()).Size(28, 28);
 
             var card = Border(
                 Markdown(entry.Text ?? "", _markdownOptions)
@@ -324,22 +343,29 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
              .WithBorder(DividerStroke, 1);
 
             var bubbleRow = (FlexRow(
-                avatar.VAlign(VerticalAlignment.Top),
+                leftSlot,
                 card.Flex(grow: 1)
             ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Stretch);
 
-            var entryMeta = MetaFor(entry.Id);
-            var timeStr = FormatTime(entryMeta?.Timestamp);
-            var modelStr = entryMeta?.Model ?? defaultModel;
+            // Footer (sender · time · model) only on the last entry of a burst.
+            Element footer = Empty();
+            if (endsBurst)
+            {
+                var entryMeta = MetaFor(entry.Id);
+                var timeStr = FormatTime(entryMeta?.Timestamp);
+                var modelStr = entryMeta?.Model ?? defaultModel;
+                var footerParts = new List<string>(3) { assistantSender };
+                if (!string.IsNullOrEmpty(timeStr)) footerParts.Add(timeStr);
+                if (!string.IsNullOrEmpty(modelStr)) footerParts.Add(modelStr!);
+                var footerText = string.Join(" · ", footerParts);
+                footer = FooterCaption(footerText, HorizontalAlignment.Left).Margin(40, 2, 0, 0);
+            }
 
-            var footerParts = new List<string>(3) { assistantSender };
-            if (!string.IsNullOrEmpty(timeStr)) footerParts.Add(timeStr);
-            if (!string.IsNullOrEmpty(modelStr)) footerParts.Add(modelStr!);
-            var footerText = string.Join(" · ", footerParts);
-
-            return VStack(2, bubbleRow, FooterCaption(footerText, HorizontalAlignment.Left).Margin(40, 2, 0, 0))
+            var topMargin = startsBurst ? 8.0 : 1.0;
+            var bottomMargin = endsBurst ? 8.0 : 1.0;
+            return VStack(2, bubbleRow, footer)
                 .HAlign(HorizontalAlignment.Stretch)
-                .Margin(24, 8, 60, 8)
+                .Margin(24, topMargin, 60, bottomMargin)
                 .AutomationName(entry.Text ?? "");
         }
 
@@ -423,10 +449,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 .Margin(36, 6, 24, 6);
         }
 
-        Element RenderEntry(ChatTimelineItem entry) => entry.Kind switch
+        Element RenderEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst) => entry.Kind switch
         {
-            ChatTimelineItemKind.User => RenderUserEntry(entry),
-            ChatTimelineItemKind.Assistant => RenderAssistantEntry(entry),
+            ChatTimelineItemKind.User => RenderUserEntry(entry, startsBurst, endsBurst),
+            ChatTimelineItemKind.Assistant => RenderAssistantEntry(entry, startsBurst, endsBurst),
             ChatTimelineItemKind.ToolCall => RenderToolEntry(entry),
 
             // Reasoning — show the actual model thought trace in a muted
@@ -474,16 +500,29 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
              _ => Empty()
         };
 
-        // Render entries — matches web client patterns
-        var renderedEntries = Props.Entries
-            .Select(entry => RenderEntry(entry).WithKey(entry.Id))
-            .ToArray();
+        // Render entries — compute "burst" boundaries so consecutive
+        // messages from the same role share a single avatar+footer.
+        // A burst is delimited by a Kind change (User↔Assistant, or any
+        // Tool/Status/Reasoning entry breaks both).
+        static bool SameBurstKind(ChatTimelineItemKind a, ChatTimelineItemKind b) =>
+            a == b && (a == ChatTimelineItemKind.User || a == ChatTimelineItemKind.Assistant);
+
+        var renderedEntries = new Element[Props.Entries.Count];
+        for (int i = 0; i < Props.Entries.Count; i++)
+        {
+            var entry = Props.Entries[i];
+            var prevKind = i > 0 ? Props.Entries[i - 1].Kind : (ChatTimelineItemKind?)null;
+            var nextKind = i < Props.Entries.Count - 1 ? Props.Entries[i + 1].Kind : (ChatTimelineItemKind?)null;
+            var startsBurst = prevKind is null || !SameBurstKind(prevKind.Value, entry.Kind);
+            var endsBurst = nextKind is null || !SameBurstKind(entry.Kind, nextKind.Value);
+            renderedEntries[i] = RenderEntry(entry, startsBurst, endsBurst).WithKey(entry.Id);
+        }
 
         return Grid([GridSize.Star()], [GridSize.Star()],
             ScrollView(
                 Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Auto],
                     loadMoreButton.Grid(row: 0, column: 0),
-                    VStack(4, renderedEntries).Set(sp =>
+                    VStack(2, renderedEntries).Set(sp =>
                     {
                         if (contentRef.Current != sp)
                         {
