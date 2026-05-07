@@ -91,9 +91,12 @@ public sealed class OpenClawChatRoot : Component
         if (selectedThread is not null && _provider is OpenClawChatDataProvider nativeForMeta)
             entryMeta = nativeForMeta.GetEntryMetadata(selectedThread.Id);
 
-        var assistantSenderLabel = !string.IsNullOrWhiteSpace(selectedThread?.Title)
-            ? selectedThread!.Title
-            : "Field";
+        // The agent name visible in the web UI footer is "Field" — that's the
+        // gateway's default agent identity, not the chat thread title (which
+        // is typically the operator client name like "OpenClaw Windows Tray").
+        // TODO: wire to a real agent-name source (agents.list response or
+        // sessionDefaults.defaultAgentId from hello-ok) once available.
+        const string assistantSenderLabel = "Field";
 
         // Show inline "thinking" indicator when the turn is active but the
         // last visible entry is NOT an assistant block yet — i.e. we're between

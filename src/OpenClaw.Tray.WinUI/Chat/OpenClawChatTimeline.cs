@@ -252,25 +252,40 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         var defaultModel = Props.DefaultModel;
         var meta = Props.EntryMetadata;
 
-        // 30-degree desaturated rose for the user bubble (close to the web UI).
-        // Light gray for the assistant avatar — both are concrete brushes so
-        // they survive light/dark theme switches without theme-ref headaches.
-        var userBubbleBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xFA, 0xDD, 0xDD));
-        var userAvatarBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE3, 0xC8, 0xC8));
-        var assistantAvatarBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE5, 0xE5, 0xE5));
-        var toolCardBgBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF7, 0xF6, 0xF4));
-        var toolCardBorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE2, 0xDF, 0xDA));
+        // ── Web Control UI palette: "dash-light" theme (verified against the
+        // bundled assets/index-*.css — dash-light is what the user runs).
+        // Colors here mirror the CSS variables exactly so bubbles/avatars
+        // look identical to the web at http://localhost:18789/chat.
+        // ──────────────────────────────────────────────────────────────
+        var chatPageBg          = new SolidColorBrush(Color.FromArgb(0xFF, 0xF7, 0xF2, 0xEC)); // --bg
+        var assistantBubbleBg   = new SolidColorBrush(Color.FromArgb(0xFF, 0xE8, 0xDD, 0xD2)); // --bg-muted
+        var assistantBubbleBdr  = new SolidColorBrush(Color.FromArgb(0xFF, 0xDD, 0xD0, 0xC2)); // --border
+        var userBubbleBg        = new SolidColorBrush(Color.FromArgb(0x33, 0x6E, 0x48, 0x28)); // --accent-subtle (#6e4828 @ 20%; CSS uses 12% but 20% reads better in WinUI sRGB)
+        var userBubbleBdr       = new SolidColorBrush(Color.FromArgb(0x33, 0x6E, 0x48, 0x28)); // accent @ 20%
+        var avatarPanelBg       = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xE8, 0xE0)); // --panel-strong
+        var avatarBorder        = new SolidColorBrush(Color.FromArgb(0xFF, 0xDD, 0xD0, 0xC2)); // --border
+        var assistantAvatarFg   = new SolidColorBrush(Color.FromArgb(0xFF, 0x75, 0x60, 0x50)); // --muted
+        var userAvatarBg        = new SolidColorBrush(Color.FromArgb(0x33, 0x6E, 0x48, 0x28));
+        var userAvatarFg        = new SolidColorBrush(Color.FromArgb(0xFF, 0x6E, 0x48, 0x28)); // --accent
+        var chatStampFg         = new SolidColorBrush(Color.FromArgb(0xFF, 0x75, 0x60, 0x50)); // --muted
+        var chatTextFg          = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0x38, 0x28)); // --chat-text
+        var toolCardBgBrush     = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xE8, 0xE0)); // --secondary
+        var toolCardBorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xDD, 0xD0, 0xC2));
 
-        static Element AvatarCircle(string glyph, Brush bg, double size = 28) =>
+        // Avatar: 36×36 rounded square (radius 10px), matches .chat-avatar in CSS.
+        Element AvatarBox(string glyph, Brush bg, Brush border, Brush fg, double size = 36, double radius = 10) =>
             Border(
                 TextBlock(glyph)
                     .Set(t =>
                     {
                         t.HorizontalAlignment = HorizontalAlignment.Center;
                         t.VerticalAlignment = VerticalAlignment.Center;
-                        t.FontSize = 14;
+                        t.FontSize = 13;
+                        t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                        t.Foreground = fg;
                     })
-            ).Background(bg).Size(size, size).CornerRadius(size / 2);
+            ).Background(bg).Size(size, size).CornerRadius(radius)
+             .WithBorder(border, 1);
 
         // Helper to format a timestamp as the web does: "h:mm tt" in local time.
         static string FormatTime(DateTimeOffset? ts) =>
@@ -281,79 +296,81 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 
         Element FooterCaption(string text, HorizontalAlignment align) =>
             Caption(text)
-                .Foreground(SecondaryText)
-                .Set(t => t.FontSize = 12)
+                .Foreground(chatStampFg)
+                .Set(t => t.FontSize = 11)
                 .HAlign(align);
 
         Element RenderUserEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
         {
+            // Bubble matches .chat-line.user .chat-bubble: accent-subtle bg,
+            // accent border @ 20%, padding 10×14, radius-lg (14px),
+            // max-width min(700, 82%).
             var bubble = Border(
                 TextBlock(entry.Text)
-                    .Set(t => { t.TextWrapping = TextWrapping.Wrap; t.IsTextSelectionEnabled = true; t.FontSize = 14; })
+                    .Set(t =>
+                    {
+                        t.TextWrapping = TextWrapping.Wrap;
+                        t.IsTextSelectionEnabled = true;
+                        t.FontSize = 14;
+                        t.Foreground = chatTextFg;
+                    })
                     .Padding(14, 10, 14, 10)
-            ).Background(userBubbleBrush).CornerRadius(14)
-             .Set(b => b.MaxWidth = 560);
+            ).Background(userBubbleBg).CornerRadius(14)
+             .WithBorder(userBubbleBdr, 1)
+             .Set(b => b.MaxWidth = 700);
 
-            // Show the avatar only on the LAST entry in a same-sender burst.
-            // Mid-burst messages get a 28px-wide spacer so the bubbles still
-            // align with the burst's avatar slot.
+            // Avatar shown only on the LAST entry of a same-sender burst.
+            // Mid-burst entries get a 36px-wide spacer so bubbles align.
             Element rightSlot = endsBurst
-                ? AvatarCircle("🧑", userAvatarBrush).VAlign(VerticalAlignment.Bottom)
-                : Border(Empty()).Size(28, 28);
+                ? AvatarBox("🧑", userAvatarBg, userBubbleBdr, userAvatarFg).VAlign(VerticalAlignment.Bottom)
+                : Border(Empty()).Size(36, 36);
 
             var bubbleRow = (FlexRow(
                 bubble,
                 rightSlot
             ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Right);
 
-            // Footer only on the last entry of a burst.
             Element footer = Empty();
             if (endsBurst)
             {
                 var entryMeta = MetaFor(entry.Id);
                 var timeStr = FormatTime(entryMeta?.Timestamp);
-                var footerText = string.IsNullOrEmpty(timeStr)
-                    ? userSender
-                    : $"{userSender} · {timeStr}";
-                footer = FooterCaption(footerText, HorizontalAlignment.Right).Margin(0, 2, 40, 0);
+                var footerText = string.IsNullOrEmpty(timeStr) ? userSender : $"{userSender} · {timeStr}";
+                footer = FooterCaption(footerText, HorizontalAlignment.Right).Margin(0, 2, 44, 0);
             }
 
-            // Tighter top margin for mid-burst entries to visually group them.
             var topMargin = startsBurst ? 8.0 : 1.0;
             var bottomMargin = endsBurst ? 8.0 : 1.0;
             return VStack(2, bubbleRow, footer)
                 .HAlign(HorizontalAlignment.Stretch)
-                .Margin(60, topMargin, 24, bottomMargin);
+                .Margin(60, topMargin, 12, bottomMargin);
         }
 
         Element RenderAssistantEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
         {
-            // Skip the brief moment between turn-start and the first delta
-            // when the assistant entry exists but has no text yet — otherwise
-            // we'd render an empty bordered card.
             if (string.IsNullOrEmpty(entry.Text))
                 return Empty();
 
-            // Avatar shown only on the FIRST entry of a same-sender burst,
-            // since the chat reads top-down and the eye anchors on the first
-            // turn from the agent in a stretch.
+            // Avatar matches .chat-avatar.assistant: panel-strong bg, muted fg.
             Element leftSlot = startsBurst
-                ? AvatarCircle("★", assistantAvatarBrush).VAlign(VerticalAlignment.Top)
-                : Border(Empty()).Size(28, 28);
+                ? AvatarBox("★", avatarPanelBg, avatarBorder, assistantAvatarFg).VAlign(VerticalAlignment.Top)
+                : Border(Empty()).Size(36, 36);
 
+            // Bubble matches .chat-line.assistant .chat-bubble: bg-muted bg,
+            // border @ var(--border).
             var card = Border(
                 Markdown(entry.Text ?? "", _markdownOptions)
                     .Padding(14, 10, 14, 10)
-            ).Background(Ref("LayerFillColorDefaultBrush"))
-             .CornerRadius(8)
-             .WithBorder(DividerStroke, 1);
+            ).Background(assistantBubbleBg)
+             .CornerRadius(14)
+             .WithBorder(assistantBubbleBdr, 1)
+             .Set(b => b.MaxWidth = 700);
 
             var bubbleRow = (FlexRow(
                 leftSlot,
-                card.Flex(grow: 1)
-            ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Stretch);
+                card
+            ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Left);
 
-            // Footer (sender · time · model) only on the last entry of a burst.
             Element footer = Empty();
             if (endsBurst)
             {
@@ -364,14 +381,14 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 if (!string.IsNullOrEmpty(timeStr)) footerParts.Add(timeStr);
                 if (!string.IsNullOrEmpty(modelStr)) footerParts.Add(modelStr!);
                 var footerText = string.Join(" · ", footerParts);
-                footer = FooterCaption(footerText, HorizontalAlignment.Left).Margin(40, 2, 0, 0);
+                footer = FooterCaption(footerText, HorizontalAlignment.Left).Margin(44, 2, 0, 0);
             }
 
             var topMargin = startsBurst ? 8.0 : 1.0;
             var bottomMargin = endsBurst ? 8.0 : 1.0;
             return VStack(2, bubbleRow, footer)
                 .HAlign(HorizontalAlignment.Stretch)
-                .Margin(24, topMargin, 60, bottomMargin)
+                .Margin(12, topMargin, 60, bottomMargin)
                 .AutomationName(entry.Text ?? "");
         }
 
@@ -531,35 +548,37 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         {
             thinkingIndicator = Border(
                 (FlexRow(
-                    AvatarCircle("★", assistantAvatarBrush).VAlign(VerticalAlignment.Center),
+                    AvatarBox("★", avatarPanelBg, avatarBorder, assistantAvatarFg).VAlign(VerticalAlignment.Center),
                     Caption($"{assistantSender} is thinking…")
-                        .Foreground(SecondaryText)
+                        .Foreground(chatStampFg)
                         .Set(t => { t.FontStyle = global::Windows.UI.Text.FontStyle.Italic; t.FontSize = 13; })
                         .VAlign(VerticalAlignment.Center)
                 ) with { ColumnGap = 8 })
-            ).Margin(24, 4, 60, 4);
+            ).Margin(12, 4, 60, 4);
         }
 
         return Grid([GridSize.Star()], [GridSize.Star()],
-            ScrollView(
-                Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Auto],
-                    loadMoreButton.Grid(row: 0, column: 0),
-                    VStack(2, renderedEntries).Set(sp =>
-                    {
-                        if (contentRef.Current != sp)
+            // Page background matches dash-light --bg so bubbles stand out.
+            Border(
+                ScrollView(
+                    Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Auto, GridSize.Auto],
+                        loadMoreButton.Grid(row: 0, column: 0),
+                        VStack(2, renderedEntries).Set(sp =>
                         {
-                            contentRef.Current = (Microsoft.UI.Xaml.Controls.StackPanel)sp;
-                            sp.SizeChanged += (_, _) =>
+                            if (contentRef.Current != sp)
                             {
-                                if (!suppressAutoFollowRef.Current && isFollowingRef.Current && scrollViewRef.Current is { } sv)
-                                    QueueScrollToBottom(sv, prevSessionIdRef.Current, disableAnimation: true);
-                            };
-                        }
-                    }).Grid(row: 1, column: 0),
-                    thinkingIndicator.Grid(row: 2, column: 0),
-                    Border(Empty()).Height(24).Grid(row: 3, column: 0)
-                )
-            ).Set(sv =>
+                                contentRef.Current = (Microsoft.UI.Xaml.Controls.StackPanel)sp;
+                                sp.SizeChanged += (_, _) =>
+                                {
+                                    if (!suppressAutoFollowRef.Current && isFollowingRef.Current && scrollViewRef.Current is { } sv)
+                                        QueueScrollToBottom(sv, prevSessionIdRef.Current, disableAnimation: true);
+                                };
+                            }
+                        }).Grid(row: 1, column: 0),
+                        thinkingIndicator.Grid(row: 2, column: 0),
+                        Border(Empty()).Height(24).Grid(row: 3, column: 0)
+                    )
+                ).Set(sv =>
             {
                 sv.HorizontalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Disabled;
                 sv.HorizontalScrollMode = Microsoft.UI.Xaml.Controls.ScrollMode.Disabled;
@@ -617,7 +636,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 prevFirstEntryIdRef.Current = firstEntryId;
                 prevLastEntryIdRef.Current = lastEntryId;
                 prevEntryCountRef.Current = entryCount;
-            }).Grid(row: 0, column: 0)
+            })
+            ).Background(chatPageBg).Grid(row: 0, column: 0)
         );
     }
 }
