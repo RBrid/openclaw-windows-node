@@ -456,10 +456,11 @@ public partial class App : Application
     }
 
     private VoiceOverlayWindow? _voiceOverlayWindow;
+    private VoiceService? _standaloneVoiceService;
 
     private void ShowVoiceOverlay()
     {
-        var voiceService = _nodeService?.VoiceService;
+        var voiceService = _nodeService?.VoiceService ?? EnsureStandaloneVoiceService();
         if (voiceService == null)
         {
             // STT not enabled — show settings
@@ -487,6 +488,14 @@ public partial class App : Application
         }
 
         _voiceOverlayWindow.Activate();
+    }
+
+    private VoiceService? EnsureStandaloneVoiceService()
+    {
+        if (_settings?.NodeSttEnabled != true)
+            return null;
+
+        return _standaloneVoiceService ??= new VoiceService(new AppLogger(), _settings);
     }
 
     private void OnTrayContextMenu(TrayIcon sender, TrayIconEventArgs e)
@@ -2625,6 +2634,7 @@ public partial class App : Application
                 _hubWindow.NodeShortDeviceId = _nodeService.ShortDeviceId;
                 _hubWindow.NodeFullDeviceId = _nodeService.FullDeviceId;
             }
+            _hubWindow.VoiceServiceInstance = _nodeService?.VoiceService ?? _standaloneVoiceService;
             _hubWindow.SettingsSaved += OnSettingsSaved;
             _hubWindow.Closed += (s, e) =>
             {
@@ -2642,6 +2652,7 @@ public partial class App : Application
         _hubWindow.Settings = _settings;
         _hubWindow.GatewayClient = _gatewayClient;
         _hubWindow.CurrentStatus = _currentStatus;
+        _hubWindow.VoiceServiceInstance = _nodeService?.VoiceService ?? _standaloneVoiceService;
         if (_nodeService != null)
         {
             _hubWindow.NodeIsConnected = _nodeService.IsConnected;
@@ -4130,6 +4141,12 @@ public partial class App : Application
         {
             _nodeService?.Dispose();
             _nodeService = null;
+        });
+
+        SafeShutdownStep("standalone voice service", () =>
+        {
+            _standaloneVoiceService?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            _standaloneVoiceService = null;
         });
 
         SafeShutdownStep("ssh tunnel service", () =>
