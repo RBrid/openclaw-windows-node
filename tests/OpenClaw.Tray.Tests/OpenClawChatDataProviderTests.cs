@@ -910,4 +910,121 @@ public class OpenClawChatDataProviderTests
 
         Assert.Equal(new[] { "X" }, snap.AvailableModels);
     }
+
+    // ── Iteration 4: per-entry metadata (timestamp + model) ──
+
+    [Fact]
+    public async Task LoadHistoryAsync_CapturesPerEntryTimestamps()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[]
+            {
+                new ChatMessageInfo { Role = "user",      Text = "Q",  State = "final", Ts = 1714600000000 },
+                new ChatMessageInfo { Role = "assistant", Text = "A",  State = "final", Ts = 1714600001000 },
+            }
+        });
+        await provider.LoadAsync();
+
+        await provider.LoadHistoryAsync("main");
+
+        var meta = provider.GetEntryMetadata("main");
+        Assert.Equal(2, meta.Count);
+        var entries = (await provider.LoadAsync()).Timelines["main"].Entries;
+        var userTs = meta[entries[0].Id].Timestamp;
+        var asstTs = meta[entries[1].Id].Timestamp;
+        Assert.NotNull(userTs);
+        Assert.NotNull(asstTs);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1714600000000).ToLocalTime(), userTs);
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1714600001000).ToLocalTime(), asstTs);
+    }
+
+    [Fact]
+    public async Task LoadHistoryAsync_AssignsModelFromActiveSession()
+    {
+        var session = new SessionInfo { Key = "main", IsMain = true, DisplayName = "Main", Model = "gpt-5.5" };
+        var (bridge, provider, _, _) = CreateProvider(new[] { session });
+        bridge.HistoryBehavior = _ => Task.FromResult(new ChatHistoryInfo
+        {
+            SessionKey = "main",
+            Messages = new[] { new ChatMessageInfo { Role = "user", Text = "Hi", State = "final", Ts = 1 } }
+        });
+        await provider.LoadAsync();
+
+        await provider.LoadHistoryAsync("main");
+
+        var meta = provider.GetEntryMetadata("main");
+        var entry = (await provider.LoadAsync()).Timelines["main"].Entries[0];
+        Assert.Equal("gpt-5.5", meta[entry.Id].Model);
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_AssignsTimestampToLocalUserEntry()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+
+        var before = DateTimeOffset.Now.AddSeconds(-1);
+        await provider.SendMessageAsync("main", "hi");
+        var after = DateTimeOffset.Now.AddSeconds(1);
+
+        var snap = await provider.LoadAsync();
+        var entry = snap.Timelines["main"].Entries[0];
+        var meta = provider.GetEntryMetadata("main");
+        Assert.True(meta.TryGetValue(entry.Id, out var m) && m.Timestamp.HasValue);
+        Assert.InRange(m!.Timestamp!.Value, before, after);
+    }
+
+    [Fact]
+    public async Task ChatMessageReceived_AssistantFinal_AssignsMetadata()
+    {
+        var session = new SessionInfo { Key = "main", IsMain = true, DisplayName = "Main", Model = "claude-sonnet-4.6" };
+        var (bridge, provider, _, _) = CreateProvider(new[] { session });
+        await provider.LoadAsync();
+
+        bridge.RaiseChat(new ChatMessageInfo
+        {
+            SessionKey = "main",
+            Role = "assistant",
+            Text = "ok",
+            State = "final",
+            Ts = 1714600005000
+        });
+
+        var snap = await provider.LoadAsync();
+        var entry = snap.Timelines["main"].Entries[0];
+        var meta = provider.GetEntryMetadata("main");
+        Assert.True(meta.TryGetValue(entry.Id, out var m));
+        Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1714600005000).ToLocalTime(), m!.Timestamp);
+        Assert.Equal("claude-sonnet-4.6", m.Model);
+    }
+
+    [Fact]
+    public async Task GetEntryMetadata_MissingThread_ReturnsEmpty()
+    {
+        var (_, provider, _, _) = CreateProvider();
+        await provider.LoadAsync();
+
+        var meta = provider.GetEntryMetadata("nonexistent");
+
+        Assert.NotNull(meta);
+        Assert.Empty(meta);
+    }
+
+    [Fact]
+    public async Task GetEntryMetadata_ReturnsDefensiveCopy()
+    {
+        var (bridge, provider, _, _) = CreateProvider(new[] { MainSession() });
+        await provider.LoadAsync();
+        await provider.SendMessageAsync("main", "hi");
+
+        var snapshot1 = (Dictionary<string, ChatEntryMetadata>)provider.GetEntryMetadata("main");
+        var initialCount = snapshot1.Count;
+        snapshot1.Clear();   // mutate the returned copy
+
+        var snapshot2 = provider.GetEntryMetadata("main");
+        Assert.Equal(initialCount, snapshot2.Count);
+    }
 }

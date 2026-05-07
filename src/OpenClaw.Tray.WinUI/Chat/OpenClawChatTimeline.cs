@@ -13,20 +13,44 @@ using static Microsoft.UI.Reactor.Core.Theme;
 namespace OpenClawTray.Chat;
 
 /// <summary>
+/// Extension of <see cref="ChatTimelineProps"/> with OpenClaw-specific
+/// per-entry metadata (<see cref="ChatEntryMetadata"/>) and sender/model
+/// labels used in the per-message footer rendering. Created by
+/// <c>OpenClawChatRoot</c>.
+/// </summary>
+/// <param name="EntryMetadata">
+/// Optional per-entry metadata snapshot keyed by <c>ChatTimelineItem.Id</c>.
+/// Renderer falls back to defaults when an entry isn't present.
+/// </param>
+/// <param name="UserSenderLabel">Sender label shown below user bubbles.</param>
+/// <param name="AssistantSenderLabel">Sender label shown below assistant cards.</param>
+/// <param name="DefaultModel">Fallback model name when an entry's metadata doesn't carry one.</param>
+public record OpenClawChatTimelineProps(
+    string? SessionId,
+    IReadOnlyList<ChatTimelineItem> Entries,
+    bool HasMoreHistory,
+    Action? OnLoadMoreHistory,
+    IReadOnlyDictionary<string, ChatEntryMetadata>? EntryMetadata = null,
+    string UserSenderLabel = "OpenClaw Windows Tray (cli)",
+    string AssistantSenderLabel = "Field",
+    string? DefaultModel = null);
+
+/// <summary>
 /// OpenClaw-skinned variant of <see cref="ChatTimeline"/> from the vendored
 /// chat sample. Reuses the same scroll/follow/load-more behavior but renames
 /// the per-entry rendering to better match the web Control UI:
 ///
 /// <list type="bullet">
-///   <item>User messages: right-aligned pink bubble with avatar glyph + sender label below.</item>
-///   <item>Assistant messages: left-aligned subtle card with ★ avatar glyph + sender label below.</item>
-///   <item>Tool calls / reasoning / status entries: same compact muted styling as upstream.</item>
+///   <item>User messages: right-aligned pink bubble with avatar glyph and a
+///         "<c>&lt;sender&gt; · &lt;time&gt;</c>" footer.</item>
+///   <item>Assistant messages: left-aligned subtle card with ★ avatar glyph
+///         and a "<c>&lt;agent&gt; · &lt;time&gt; · &lt;model&gt;</c>" footer.</item>
+///   <item>Tool calls: prominent compact rounded card matching the web's
+///         "Tool call exec" affordance, with a small footer for time.</item>
+///   <item>Reasoning / status entries: muted styling as in upstream.</item>
 /// </list>
-///
-/// Drop-in replacement for <see cref="ChatTimeline"/> — accepts the same
-/// <see cref="ChatTimelineProps"/> contract.
 /// </summary>
-public class OpenClawChatTimeline : Component<ChatTimelineProps>
+public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 {
     const double FollowThreshold = 60;
 
@@ -216,14 +240,11 @@ public class OpenClawChatTimeline : Component<ChatTimelineProps>
             Border(child).Padding(36, top, 24, bottom);
 
         // ── OpenClaw skin: bubbled user vs. left-aligned assistant card ──
-        // (Customizations vs. upstream Chat.UI.ChatTimeline.RenderEntry.)
 
-        // Sender label hard-coded for v1 — the gateway's operator client
-        // identifier (matches OpenClawGatewayClient.OperatorClientDisplayName)
-        // and the agent name visible in the web UI's footer ("Field"). v2 will
-        // wire real per-message timestamps + per-thread agent names.
-        const string UserSender = "OpenClaw Windows Tray (cli)";
-        const string AssistantSender = "Field";
+        var userSender = Props.UserSenderLabel;
+        var assistantSender = Props.AssistantSenderLabel;
+        var defaultModel = Props.DefaultModel;
+        var meta = Props.EntryMetadata;
 
         // 30-degree desaturated rose for the user bubble (close to the web UI).
         // Light gray for the assistant avatar — both are concrete brushes so
@@ -231,6 +252,8 @@ public class OpenClawChatTimeline : Component<ChatTimelineProps>
         var userBubbleBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xFA, 0xDD, 0xDD));
         var userAvatarBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE3, 0xC8, 0xC8));
         var assistantAvatarBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE5, 0xE5, 0xE5));
+        var toolCardBgBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF7, 0xF6, 0xF4));
+        var toolCardBorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE2, 0xDF, 0xDA));
 
         static Element AvatarCircle(string glyph, Brush bg, double size = 28) =>
             Border(
@@ -242,6 +265,19 @@ public class OpenClawChatTimeline : Component<ChatTimelineProps>
                         t.FontSize = 14;
                     })
             ).Background(bg).Size(size, size).CornerRadius(size / 2);
+
+        // Helper to format a timestamp as the web does: "h:mm tt" in local time.
+        static string FormatTime(DateTimeOffset? ts) =>
+            ts is { } v ? v.ToLocalTime().ToString("h:mm tt") : "";
+
+        ChatEntryMetadata? MetaFor(string id) =>
+            meta is not null && meta.TryGetValue(id, out var m) ? m : null;
+
+        Element FooterCaption(string text, HorizontalAlignment align) =>
+            Caption(text)
+                .Foreground(SecondaryText)
+                .Set(t => t.FontSize = 12)
+                .HAlign(align);
 
         Element RenderUserEntry(ChatTimelineItem entry)
         {
@@ -259,18 +295,25 @@ public class OpenClawChatTimeline : Component<ChatTimelineProps>
                 avatar.VAlign(VerticalAlignment.Bottom)
             ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Right);
 
-            var senderLabel = Caption(UserSender)
-                .Foreground(SecondaryText)
-                .Set(t => t.FontSize = 12)
-                .HAlign(HorizontalAlignment.Right);
+            var entryMeta = MetaFor(entry.Id);
+            var timeStr = FormatTime(entryMeta?.Timestamp);
+            var footerText = string.IsNullOrEmpty(timeStr)
+                ? userSender
+                : $"{userSender} · {timeStr}";
 
-            return VStack(2, bubbleRow, senderLabel.Margin(0, 2, 40, 0))
+            return VStack(2, bubbleRow, FooterCaption(footerText, HorizontalAlignment.Right).Margin(0, 2, 40, 0))
                 .HAlign(HorizontalAlignment.Stretch)
                 .Margin(60, 8, 24, 8);
         }
 
         Element RenderAssistantEntry(ChatTimelineItem entry)
         {
+            // Skip the brief moment between turn-start and the first delta
+            // when the assistant entry exists but has no text yet — otherwise
+            // we'd render an empty bordered card.
+            if (string.IsNullOrEmpty(entry.Text))
+                return Empty();
+
             var avatar = AvatarCircle("★", assistantAvatarBrush);
 
             var card = Border(
@@ -285,51 +328,137 @@ public class OpenClawChatTimeline : Component<ChatTimelineProps>
                 card.Flex(grow: 1)
             ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Stretch);
 
-            var senderLabel = Caption(AssistantSender)
-                .Foreground(SecondaryText)
-                .Set(t => t.FontSize = 12)
-                .HAlign(HorizontalAlignment.Left);
+            var entryMeta = MetaFor(entry.Id);
+            var timeStr = FormatTime(entryMeta?.Timestamp);
+            var modelStr = entryMeta?.Model ?? defaultModel;
 
-            return VStack(2, bubbleRow, senderLabel.Margin(40, 2, 0, 0))
+            var footerParts = new List<string>(3) { assistantSender };
+            if (!string.IsNullOrEmpty(timeStr)) footerParts.Add(timeStr);
+            if (!string.IsNullOrEmpty(modelStr)) footerParts.Add(modelStr!);
+            var footerText = string.Join(" · ", footerParts);
+
+            return VStack(2, bubbleRow, FooterCaption(footerText, HorizontalAlignment.Left).Margin(40, 2, 0, 0))
                 .HAlign(HorizontalAlignment.Stretch)
                 .Margin(24, 8, 60, 8)
                 .AutomationName(entry.Text ?? "");
+        }
+
+        // Tool call: prominent rounded card with status glyph, tool name in
+        // monospace, truncated args, and a small footer line for the time.
+        Element RenderToolEntry(ChatTimelineItem entry)
+        {
+            var statusGlyph = entry.ToolResult switch
+            {
+                ChatToolCallStatus.Success => "✓",
+                ChatToolCallStatus.Error => "✗",
+                _ => "⋯"
+            };
+            var statusFg = entry.ToolResult switch
+            {
+                ChatToolCallStatus.Success => Ref("SystemFillColorSuccessBrush"),
+                ChatToolCallStatus.Error => Ref("SystemFillColorCriticalBrush"),
+                _ => TertiaryText
+            };
+
+            var headerRow = (FlexRow(
+                Caption(statusGlyph).Foreground(statusFg)
+                    .Set(t => { t.FontSize = 14; })
+                    .VAlign(VerticalAlignment.Center),
+                Caption(entry.ToolName ?? "tool").Foreground(SecondaryText)
+                    .Set(t =>
+                    {
+                        t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
+                        t.FontSize = 13;
+                        t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                    })
+                    .VAlign(VerticalAlignment.Center),
+                When(entry.Text is { Length: > 0 } && entry.Text != entry.ToolName,
+                    () => Caption(FormatToolLabel(entry)).Foreground(TertiaryText)
+                        .Set(t =>
+                        {
+                            t.TextTrimming = TextTrimming.CharacterEllipsis;
+                            t.MaxLines = 1;
+                            t.IsTextSelectionEnabled = true;
+                            t.FontSize = 12;
+                        })
+                        .VAlign(VerticalAlignment.Center).Flex(grow: 1))
+            ) with { ColumnGap = 8 }).Padding(12, 8, 12, 8);
+
+            // Truncated tool output preview (8 lines max, scrolls beyond).
+            var hasOutput = !string.IsNullOrEmpty(entry.ToolOutput);
+            Element outputBlock = hasOutput
+                ? (Element)Border(
+                    ScrollView(
+                        TextBlock(entry.ToolOutput!)
+                            .Set(t =>
+                            {
+                                t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
+                                t.FontSize = 12;
+                                t.TextWrapping = TextWrapping.Wrap;
+                                t.IsTextSelectionEnabled = true;
+                            })
+                            .Foreground(SecondaryText)
+                            .Padding(12, 6, 12, 8)
+                    ).Set(sv =>
+                    {
+                        sv.MaxHeight = 160; // ~8 lines; scroll beyond
+                        sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+                        sv.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+                    })
+                ).WithBorder(toolCardBorderBrush, 0).Padding(0)
+                : Empty();
+
+            var card = Border(
+                VStack(0, headerRow, outputBlock)
+            ).Background(toolCardBgBrush)
+             .CornerRadius(8)
+             .WithBorder(toolCardBorderBrush, 1);
+
+            var entryMeta = MetaFor(entry.Id);
+            var timeStr = FormatTime(entryMeta?.Timestamp);
+            var footerText = string.IsNullOrEmpty(timeStr) ? "Tool" : $"Tool · {timeStr}";
+
+            return VStack(2, card, FooterCaption(footerText, HorizontalAlignment.Left).Margin(0, 2, 0, 0))
+                .HAlign(HorizontalAlignment.Stretch)
+                .Margin(36, 6, 24, 6);
         }
 
         Element RenderEntry(ChatTimelineItem entry) => entry.Kind switch
         {
             ChatTimelineItemKind.User => RenderUserEntry(entry),
             ChatTimelineItemKind.Assistant => RenderAssistantEntry(entry),
+            ChatTimelineItemKind.ToolCall => RenderToolEntry(entry),
 
-            // Tool calls — compact row, hover highlight
-            ChatTimelineItemKind.ToolCall => TimelineInset(
-                (FlexRow(
-                    Caption(entry.ToolResult switch
-                    {
-                        ChatToolCallStatus.Success => "✓",
-                        ChatToolCallStatus.Error => "✗",
-                        _ => "⋯"
-                    }).Foreground(entry.ToolResult switch
-                    {
-                        ChatToolCallStatus.Success => SecondaryText,
-                        ChatToolCallStatus.Error => Ref("SystemFillColorCriticalBrush"),
-                        _ => TertiaryText
-                    }).VAlign(VerticalAlignment.Center).Set(t => t.FontSize = 12),
-                    Caption(entry.ToolName ?? "tool").Foreground(SecondaryText)
-                        .Set(t => { t.FontFamily = new FontFamily("Cascadia Code, Consolas"); t.FontSize = 12; })
-                        .VAlign(VerticalAlignment.Center),
-                    When(entry.Text is { Length: > 0 } && entry.Text != entry.ToolName,
-                        () => Caption(FormatToolLabel(entry)).Foreground(TertiaryText)
-                            .Set(t => { t.TextTrimming = TextTrimming.CharacterEllipsis; t.MaxLines = 1; t.IsTextSelectionEnabled = true; t.FontSize = 12; })
-                            .VAlign(VerticalAlignment.Center).Flex(grow: 1))
-                ) with { ColumnGap = 6 })),
+            // Reasoning — show the actual model thought trace in a muted
+            // collapsible panel, with a "thinking" caption when empty.
+            ChatTimelineItemKind.Reasoning => entry.Text is { Length: > 0 }
+                ? TimelineInset(
+                    Border(
+                        VStack(2,
+                            Caption("Reasoning")
+                                .Foreground(TertiaryText)
+                                .Set(t => { t.FontSize = 11; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; }),
+                            TextBlock(entry.Text)
+                                .Set(t =>
+                                {
+                                    t.FontSize = 12;
+                                    t.TextWrapping = TextWrapping.Wrap;
+                                    t.IsTextSelectionEnabled = true;
+                                    t.FontStyle = global::Windows.UI.Text.FontStyle.Italic;
+                                })
+                                .Foreground(TertiaryText)
+                        )
+                    ).Padding(12, 8, 12, 8)
+                     .Background(Ref("SubtleFillColorTertiaryBrush"))
+                     .CornerRadius(6)
+                     .WithBorder(toolCardBorderBrush, 1),
+                    top: 4,
+                    bottom: 4)
+                : TimelineInset(
+                    Caption("thinking…").Foreground(TertiaryText)
+                        .Set(t => { t.FontStyle = global::Windows.UI.Text.FontStyle.Italic; t.FontSize = 12; })),
 
-            // Reasoning
-            ChatTimelineItemKind.Reasoning => TimelineInset(
-                Caption("thinking…").Foreground(TertiaryText)
-                    .Set(t => { t.FontStyle = global::Windows.UI.Text.FontStyle.Italic; t.FontSize = 12; })),
-
-            // Filtered status
+            // Filtered status — drop transient connection chatter.
             ChatTimelineItemKind.Status when entry.Text.Contains("Restored") || entry.Text.Contains("Connecting to") || entry.Text.Contains("Connected") || entry.Text.Contains("Resuming") => Empty(),
 
             ChatTimelineItemKind.Status when entry.Tone == ChatTone.Error =>

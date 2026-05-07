@@ -46,6 +46,12 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
     private readonly Dictionary<string, string> _sessionIds = new();      // sessionKey → immutable sessionId
     private readonly HashSet<string> _historyLoaded = new();              // sessionKey
     private readonly HashSet<string> _historyInFlight = new();            // sessionKey
+    // Per-thread, per-entry metadata: timestamp + model snapshot at the
+    // moment the entry was created. Built up as events are applied so the
+    // timeline renderer can show a "<sender> · <local time> · <model>" footer
+    // beneath each message without having to extend the vendored
+    // <see cref="ChatTimelineItem"/> record.
+    private readonly Dictionary<string, Dictionary<string, ChatEntryMetadata>> _entryMeta = new();
     private SessionInfo[] _sessions = Array.Empty<SessionInfo>();
     private string[] _availableModels = Array.Empty<string>();
     private ConnectionStatus _status;
@@ -134,8 +140,15 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         lock (_gate)
         {
             var current = GetOrCreateTimelineLocked(threadId);
+            var beforeNextId = current.NextId;
             _timelines[threadId] = ChatTimelineReducer.AddLocalUser(current, trimmed, nonce);
             _sessionIds.TryGetValue(threadId, out sessionId);
+
+            // Capture metadata for the just-added user entry.
+            var meta = BuildLiveMetaLocked(threadId);
+            var threadMeta = GetOrCreateThreadMetaLocked(threadId);
+            threadMeta[$"e{beforeNextId}"] = meta;
+
             snapshot = BuildSnapshotLocked();
         }
         Publish(snapshot);
@@ -240,9 +253,33 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
                     .Select(t => t.m)
                     .ToList();
 
+                // Build per-entry metadata in lockstep with the reducer.
+                var rebuiltMeta = new Dictionary<string, ChatEntryMetadata>();
+                var session = Array.Find(_sessions, s => s.Key == threadId);
+                var modelAtLoad = session?.Model;
+
+                ChatTimelineState ApplyAndCaptureMeta(ChatTimelineState s, ChatEvent e, ChatEntryMetadata meta)
+                {
+                    var beforeIds = new HashSet<string>(s.Entries.Count);
+                    for (int i = 0; i < s.Entries.Count; i++) beforeIds.Add(s.Entries[i].Id);
+                    var nextState = ChatTimelineReducer.Apply(s, e);
+                    for (int i = 0; i < nextState.Entries.Count; i++)
+                    {
+                        var id = nextState.Entries[i].Id;
+                        if (!beforeIds.Contains(id) && !rebuiltMeta.ContainsKey(id))
+                            rebuiltMeta[id] = meta;
+                    }
+                    return nextState;
+                }
+
                 foreach (var msg in ordered)
                 {
                     if (string.IsNullOrEmpty(msg.Text)) continue;
+
+                    var ts = msg.Ts > 0
+                        ? DateTimeOffset.FromUnixTimeMilliseconds(msg.Ts).ToLocalTime()
+                        : (DateTimeOffset?)null;
+                    var msgMeta = new ChatEntryMetadata(ts, modelAtLoad);
 
                     var roleLower = msg.Role?.ToLowerInvariant() ?? "";
                     switch (roleLower)
@@ -254,11 +291,11 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
                             // ActiveAssistantId here so the next assistant message
                             // starts a fresh entry instead of overwriting the previous.
                             rebuilt = rebuilt with { ActiveAssistantId = null, ActiveReasoningId = null };
-                            rebuilt = ChatTimelineReducer.Apply(rebuilt, new ChatUserMessageEvent(msg.Text));
+                            rebuilt = ApplyAndCaptureMeta(rebuilt, new ChatUserMessageEvent(msg.Text), msgMeta);
                             break;
 
                         case "assistant":
-                            rebuilt = ChatTimelineReducer.Apply(rebuilt, new ChatMessageEvent(msg.Text));
+                            rebuilt = ApplyAndCaptureMeta(rebuilt, new ChatMessageEvent(msg.Text), msgMeta);
                             // End the turn so the next assistant message starts a new
                             // entry rather than replacing this one (UpsertAssistant
                             // upserts by ActiveAssistantId, which TurnEnd clears).
@@ -270,16 +307,17 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
                             // Render system / tool transcript notes as muted Status
                             // entries so they're visible but de-emphasized vs. the
                             // user/assistant turn flow.
-                            rebuilt = ChatTimelineReducer.Apply(
+                            rebuilt = ApplyAndCaptureMeta(
                                 rebuilt,
-                                new ChatStatusEvent(msg.Text, ChatTone.Dim));
+                                new ChatStatusEvent(msg.Text, ChatTone.Dim),
+                                msgMeta);
                             break;
 
                         default:
                             // Unknown role — fall back to assistant rendering so it's
                             // at least visible. Bracket with TurnEnd to avoid
                             // collapsing into adjacent assistant entries.
-                            rebuilt = ChatTimelineReducer.Apply(rebuilt, new ChatMessageEvent(msg.Text));
+                            rebuilt = ApplyAndCaptureMeta(rebuilt, new ChatMessageEvent(msg.Text), msgMeta);
                             rebuilt = ChatTimelineReducer.Apply(rebuilt, new ChatTurnEndEvent());
                             break;
                     }
@@ -288,14 +326,23 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
                 rebuilt = rebuilt with { TurnActive = false, ActiveAssistantId = null, ActiveReasoningId = null };
 
                 // Append any prior live entries that weren't part of history.
+                // Preserve the metadata we already captured for those IDs.
                 if (prior.Entries.Count > 0)
                 {
+                    var priorMeta = _entryMeta.TryGetValue(threadId, out var pm)
+                        ? pm
+                        : new Dictionary<string, ChatEntryMetadata>();
                     foreach (var entry in prior.Entries)
+                    {
                         rebuilt.Entries.Add(entry);
+                        if (priorMeta.TryGetValue(entry.Id, out var existing) && !rebuiltMeta.ContainsKey(entry.Id))
+                            rebuiltMeta[entry.Id] = existing;
+                    }
                     rebuilt = rebuilt with { TurnActive = prior.TurnActive };
                 }
 
                 _timelines[threadId] = rebuilt;
+                _entryMeta[threadId] = rebuiltMeta;
                 _historyLoaded.Add(threadId);
                 snapshot = BuildSnapshotLocked();
             }
@@ -352,6 +399,21 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         _bridge.AgentEventReceived -= OnAgentEventReceived;
         _bridge.ModelsListUpdated -= OnModelsListUpdated;
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Snapshot of per-entry metadata for one thread, defensively copied so
+    /// callers (typically the renderer) can read it concurrently with future
+    /// adapter mutations. Returns an empty dictionary if nothing is tracked.
+    /// </summary>
+    public IReadOnlyDictionary<string, ChatEntryMetadata> GetEntryMetadata(string threadId)
+    {
+        lock (_gate)
+        {
+            return _entryMeta.TryGetValue(threadId, out var m)
+                ? new Dictionary<string, ChatEntryMetadata>(m)
+                : new Dictionary<string, ChatEntryMetadata>();
+        }
     }
 
     // ── Event handlers ──
@@ -445,13 +507,15 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             return;
 
         var threadId = string.IsNullOrEmpty(message.SessionKey) ? "main" : message.SessionKey;
+        ChatEntryMetadata? meta;
+        lock (_gate) { meta = BuildLiveMetaLocked(threadId, message.Ts); }
 
         // Both `state: "delta"` and `state: "final"` carry the cumulative
         // assistant text (the gateway's EmbeddedBlockChunker emits completed
         // blocks, not token deltas — see spec §"Block Streaming"). Map both
         // to ChatMessageEvent so the reducer REPLACES the active assistant
         // entry's text. Final additionally ends the turn.
-        ApplyEventAndPublish(threadId, new ChatMessageEvent(message.Text));
+        ApplyEventAndPublish(threadId, new ChatMessageEvent(message.Text), meta);
 
         if (message.IsFinal)
         {
@@ -473,7 +537,12 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         ChatEvent? mapped = MapAgentEvent(evt);
         if (mapped is null) return;
 
-        ApplyEventAndPublish(threadId, mapped);
+        // AgentEventInfo.Ts is a double of unix-epoch ms (per OpenClawGatewayClient).
+        var tsMs = evt.Ts > 0 ? (long)evt.Ts : 0L;
+        ChatEntryMetadata? meta;
+        lock (_gate) { meta = BuildLiveMetaLocked(threadId, tsMs); }
+
+        ApplyEventAndPublish(threadId, mapped, meta);
     }
 
     private void UpdateActiveRunId(AgentEventInfo evt, string threadId)
@@ -707,16 +776,55 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
 
     // ── State helpers ──
 
-    private void ApplyEventAndPublish(string threadId, ChatEvent evt)
+    private void ApplyEventAndPublish(string threadId, ChatEvent evt, ChatEntryMetadata? meta = null)
     {
         ChatDataSnapshot snapshot;
         lock (_gate)
         {
             var current = GetOrCreateTimelineLocked(threadId);
-            _timelines[threadId] = ChatTimelineReducer.Apply(current, evt);
+            var beforeIds = new HashSet<string>(current.Entries.Count);
+            for (int i = 0; i < current.Entries.Count; i++) beforeIds.Add(current.Entries[i].Id);
+
+            var next = ChatTimelineReducer.Apply(current, evt);
+            _timelines[threadId] = next;
+
+            // Capture metadata for any newly-created entries. Updates to
+            // existing entries (e.g. UpsertAssistant on the active assistant)
+            // intentionally don't overwrite — the original creation timestamp
+            // for the turn is more useful than the most-recent-delta time.
+            if (meta is not null)
+            {
+                var threadMeta = GetOrCreateThreadMetaLocked(threadId);
+                for (int i = 0; i < next.Entries.Count; i++)
+                {
+                    var id = next.Entries[i].Id;
+                    if (!beforeIds.Contains(id) && !threadMeta.ContainsKey(id))
+                        threadMeta[id] = meta;
+                }
+            }
+
             snapshot = BuildSnapshotLocked();
         }
         Publish(snapshot);
+    }
+
+    private Dictionary<string, ChatEntryMetadata> GetOrCreateThreadMetaLocked(string threadId)
+    {
+        if (!_entryMeta.TryGetValue(threadId, out var meta))
+        {
+            meta = new Dictionary<string, ChatEntryMetadata>();
+            _entryMeta[threadId] = meta;
+        }
+        return meta;
+    }
+
+    private ChatEntryMetadata BuildLiveMetaLocked(string threadId, long? tsMs = null)
+    {
+        var ts = tsMs is { } v && v > 0
+            ? DateTimeOffset.FromUnixTimeMilliseconds(v).ToLocalTime()
+            : (DateTimeOffset?)DateTimeOffset.Now;
+        var session = Array.Find(_sessions, s => s.Key == threadId);
+        return new ChatEntryMetadata(ts, session?.Model);
     }
 
     private ChatTimelineState GetOrCreateTimelineLocked(string threadId)

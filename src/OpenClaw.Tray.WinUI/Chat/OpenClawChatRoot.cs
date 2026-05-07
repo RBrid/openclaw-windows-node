@@ -86,9 +86,26 @@ public sealed class OpenClawChatRoot : Component
 
         Element header = Component<SessionHeader, SessionHeaderProps>(new(selectedThread, timeline));
 
+        // Per-entry metadata for the OpenClaw timeline footer (sender · time · model).
+        IReadOnlyDictionary<string, ChatEntryMetadata>? entryMeta = null;
+        if (selectedThread is not null && _provider is OpenClawChatDataProvider nativeForMeta)
+            entryMeta = nativeForMeta.GetEntryMetadata(selectedThread.Id);
+
+        var assistantSenderLabel = !string.IsNullOrWhiteSpace(selectedThread?.Title)
+            ? selectedThread!.Title
+            : "Field";
+
         Element body = selectedThread is null
             ? PlaceholderEmptyState(connectedRaw)
-            : Component<OpenClawChatTimeline, ChatTimelineProps>(new(selectedThread.Id, entries, false, null));
+            : Component<OpenClawChatTimeline, OpenClawChatTimelineProps>(new(
+                SessionId: selectedThread.Id,
+                Entries: entries,
+                HasMoreHistory: false,
+                OnLoadMoreHistory: null,
+                EntryMetadata: entryMeta,
+                UserSenderLabel: "OpenClaw Windows Tray (cli)",
+                AssistantSenderLabel: assistantSenderLabel,
+                DefaultModel: selectedThread.Model));
 
         Element inputBar = selectedThread is not null
             ? Component<InputBar, InputBarProps>(new(
