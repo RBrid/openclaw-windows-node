@@ -340,8 +340,14 @@ public class OpenClawGatewayClient : WebSocketClientBase
         foreach (var m in msgs.EnumerateArray())
         {
             var role = m.TryGetProperty("role", out var r) ? r.GetString() ?? "" : "";
-            var ts = m.TryGetProperty("ts", out var tsProp) && tsProp.ValueKind == JsonValueKind.Number
-                ? tsProp.GetInt64() : 0;
+            // Spec doc lists `ts`, but gateway 2026.4.23 actually returns
+            // `timestamp` on chat.history rows (verified via WS RX trace).
+            // Accept both for forward/back compat.
+            long ts = 0;
+            if (m.TryGetProperty("timestamp", out var tsProp1) && tsProp1.ValueKind == JsonValueKind.Number)
+                ts = tsProp1.GetInt64();
+            else if (m.TryGetProperty("ts", out var tsProp2) && tsProp2.ValueKind == JsonValueKind.Number)
+                ts = tsProp2.GetInt64();
 
             // content can be a plain string OR an array of {type:"text", text:"..."} blocks
             string text = ExtractMessageText(m);
