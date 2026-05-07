@@ -1030,7 +1030,9 @@ public static class CommandCenterCommandGroups
     public static readonly string[] DangerousCommands =
     [
         .. CommonDangerousCommands,
-        "stt.transcribe"
+        "stt.transcribe",
+        "stt.listen",
+        "stt.status"
     ];
 
     public static readonly FrozenSet<string> DangerousCommandSet =

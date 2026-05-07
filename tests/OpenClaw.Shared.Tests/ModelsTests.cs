@@ -1738,6 +1738,11 @@ public class SessionInfoContextSummaryTests
     {
         Assert.Contains("stt.transcribe", CommandCenterCommandGroups.DangerousCommands);
         Assert.Contains("stt.transcribe", (IReadOnlySet<string>)CommandCenterCommandGroups.DangerousCommandSet);
+        // stt.listen and stt.status need the same explicit gateway opt-in so
+        // chat agents see them once NodeSttEnabled is on. Otherwise the
+        // gateway's Windows platform default policy keeps them hidden.
+        Assert.Contains("stt.listen", CommandCenterCommandGroups.DangerousCommands);
+        Assert.Contains("stt.status", CommandCenterCommandGroups.DangerousCommands);
     }
 
     [Fact]
