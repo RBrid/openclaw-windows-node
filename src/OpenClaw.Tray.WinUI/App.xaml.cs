@@ -491,10 +491,7 @@ public partial class App : Application
 
     private void OnTrayContextMenu(TrayIcon sender, TrayIconEventArgs e)
     {
-        // Right-click: bring up the companion app AND show the popup menu.
-        // Show the Hub without activating focus so the popup (which is
-        // light-dismiss) stays the foreground window when it appears.
-        try { ShowHub(activate: false); } catch { /* swallow */ }
+        // Right-click: show menu
         ShowTrayMenuPopup();
     }
 
