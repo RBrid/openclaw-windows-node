@@ -519,14 +519,21 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 ? AvatarBox("★", avatarPanelBg, avatarBorder, assistantAvatarFg).VAlign(VerticalAlignment.Top)
                 : Border(Empty()).Size(36, 36);
 
-            // Assistant bubble — subtle gray with primary text. Radius 16 to
+            // Assistant bubble — subtle gray with primary text. Radius 10 to
             // match Kenny's Calm pill shape; no border in Calm.
             var card = Border(
                 Markdown(entry.Text ?? "", _markdownOptions)
-                    .Padding(14, 10, 14, 10)
             ).Background(assistantBubbleBg)
              .CornerRadius(10)
-             .Set(b => b.MaxWidth = 560);
+             .Set(b =>
+             {
+                 b.MaxWidth = 560;
+                 // Put padding on the Border (not the Markdown content) so the
+                 // bubble auto-sizes to the wrapped content height. Padding on
+                 // the inner Markdown control causes the bubble to clip when
+                 // text wraps to multiple lines (#assistant-bubble-clip).
+                 b.Padding = new Thickness(14, 8, 14, 8);
+             });
 
             // Speak icon (read aloud) — visible only on hover.
             var speakIcon = HoverIcon(entry.Id, "\uE767", "Read aloud",

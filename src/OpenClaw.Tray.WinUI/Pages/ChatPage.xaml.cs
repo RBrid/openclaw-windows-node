@@ -68,16 +68,24 @@ public sealed partial class ChatPage : Page
         hub.SettingsSaved -= OnSettingsSaved;
         hub.SettingsSaved += OnSettingsSaved;
 
+        // Also react to the per-surface debug override picked from DebugPage.
+        OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed -= OnDebugOverrideChanged;
+        OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed += OnDebugOverrideChanged;
+
         ApplyChatSurface();
     }
 
     private void OnSettingsSaved(object? sender, EventArgs e) => ApplyChatSurface();
 
+    private void OnDebugOverrideChanged(object? sender, EventArgs e) => ApplyChatSurface();
+
     private void ApplyChatSurface()
     {
         if (_hub?.Settings is null) return;
 
-        var useLegacy = _hub.Settings.UseLegacyWebChat;
+        var useLegacy = OpenClawTray.Chat.DebugChatSurfaceOverrides.ResolveUseLegacy(
+            OpenClawTray.Chat.DebugChatSurfaceOverrides.HubChat,
+            _hub.Settings.UseLegacyWebChat);
         if (useLegacy)
             ShowWebViewSurface();
         else

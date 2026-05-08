@@ -85,14 +85,23 @@ public sealed partial class ChatWindow : WindowEx
         if (App.Current is App app)
             app.SettingsChanged += OnAppSettingsChanged;
 
+        // Per-surface debug override (DebugPage > "Debug Overrides").
+        OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed -= OnDebugOverrideChanged;
+        OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed += OnDebugOverrideChanged;
+
         ApplyChatSurface();
     }
 
     private void OnAppSettingsChanged(object? sender, EventArgs e) => ApplyChatSurface();
 
+    private void OnDebugOverrideChanged(object? sender, EventArgs e) => ApplyChatSurface();
+
     private void ApplyChatSurface()
     {
-        var useLegacy = (App.Current as App)?.Settings?.UseLegacyWebChat ?? false;
+        var setting = (App.Current as App)?.Settings?.UseLegacyWebChat ?? false;
+        var useLegacy = OpenClawTray.Chat.DebugChatSurfaceOverrides.ResolveUseLegacy(
+            OpenClawTray.Chat.DebugChatSurfaceOverrides.TrayChat,
+            setting);
         if (useLegacy)
             ShowWebViewSurface();
         else
@@ -152,7 +161,10 @@ public sealed partial class ChatWindow : WindowEx
 
         // If WebView2 is already up, navigate it to the refreshed URL so the user gets a
         // working chat instead of the pre-warmed (auth-failed) view.
-        if (_webViewInitialized && WebView?.CoreWebView2 != null)
+        // BUT only when we're actively in webview mode — otherwise this would
+        // un-hide the WebView on top of the active Reactor surface (e.g. when
+        // the Debug Overrides force the Companion Chat UI on the Tray popup).
+        if (_webViewMode && _webViewInitialized && WebView?.CoreWebView2 != null)
         {
             try
             {
@@ -351,6 +363,7 @@ public sealed partial class ChatWindow : WindowEx
         Closed -= OnWindowClosing;
         if (App.Current is App app)
             app.SettingsChanged -= OnAppSettingsChanged;
+        OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed -= OnDebugOverrideChanged;
         IsClosed = true;
         try { _reactorHost?.Dispose(); } catch { }
         _reactorHost = null;

@@ -101,6 +101,53 @@
                 </StackPanel>
             </Expander>
 
+            <!-- Debug Overrides — process-wide, per-surface chat UI override.
+                 Lets engineers compare the legacy WebView and the native
+                 Reactor chat surfaces side-by-side without flipping the
+                 user-facing "Use standard Gateway Chat interface" setting. -->
+            <Expander x:Name="OverridesExpander" IsExpanded="True"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <Expander.Header>
+                    <TextBlock Text="Debug Overrides" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                </Expander.Header>
+                <StackPanel Spacing="12" Padding="4">
+                    <TextBlock Text="Override the global 'Use standard Gateway Chat interface' setting per chat container. Resets when the app restarts."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                    <Grid ColumnSpacing="12" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Hub Chat tab UI:"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="0" Grid.Column="1" x:Name="HubChatOverrideCombo"
+                                  HorizontalAlignment="Stretch"
+                                  AutomationProperties.AutomationId="DebugPageHubChatOverride"
+                                  SelectionChanged="OnHubChatOverrideChanged">
+                            <ComboBoxItem Content="No override" Tag="NoOverride"/>
+                            <ComboBoxItem Content="Force Gateway Chat UI" Tag="ForceLegacy"/>
+                            <ComboBoxItem Content="Force Companion Chat UI" Tag="ForceNative"/>
+                        </ComboBox>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Tray Chat popup UI:"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="TrayChatOverrideCombo"
+                                  HorizontalAlignment="Stretch"
+                                  AutomationProperties.AutomationId="DebugPageTrayChatOverride"
+                                  SelectionChanged="OnTrayChatOverrideChanged">
+                            <ComboBoxItem Content="No override" Tag="NoOverride"/>
+                            <ComboBoxItem Content="Force Gateway Chat UI" Tag="ForceLegacy"/>
+                            <ComboBoxItem Content="Force Companion Chat UI" Tag="ForceNative"/>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </Expander>
+
             <!-- Debug Actions -->
             <Expander x:Name="ActionsExpander" IsExpanded="True"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
