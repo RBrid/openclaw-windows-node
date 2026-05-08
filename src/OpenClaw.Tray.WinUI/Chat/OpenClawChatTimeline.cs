@@ -466,8 +466,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                         t.Foreground = userBubbleFg;
                     })
                     .Padding(14, 10, 14, 10)
-            ).Background(userBubbleBg).CornerRadius(16)
-             .Set(b => b.MaxWidth = 700);
+            ).Background(userBubbleBg).CornerRadius(10)
+             .Set(b => b.MaxWidth = 560);
 
             // Avatar shown only on the LAST entry of a same-sender burst.
             // Mid-burst entries get a 36px-wide spacer so bubbles align.
@@ -494,12 +494,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 footer = FooterCaption(footerText, HorizontalAlignment.Right).Margin(0, 2, 44, 0);
             }
 
-            var topMargin = startsBurst ? 8.0 : 1.0;
-            var bottomMargin = endsBurst ? 8.0 : 1.0;
+            var topMargin = startsBurst ? 4.0 : 1.0;
+            var bottomMargin = endsBurst ? 4.0 : 1.0;
             return WithHoverHandlers(
                 VStack(2, bubbleRow, footer)
                     .HAlign(HorizontalAlignment.Stretch)
-                    .Margin(60, topMargin, 12, bottomMargin),
+                    .Margin(64, topMargin, 8, bottomMargin),
                 entry.Id);
         }
 
@@ -519,8 +519,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 Markdown(entry.Text ?? "", _markdownOptions)
                     .Padding(14, 10, 14, 10)
             ).Background(assistantBubbleBg)
-             .CornerRadius(16)
-             .Set(b => b.MaxWidth = 700);
+             .CornerRadius(10)
+             .Set(b => b.MaxWidth = 560);
 
             // Speak icon (read aloud) — visible only on hover.
             var speakIcon = HoverIcon(entry.Id, "\uE767", "Read aloud",
@@ -545,12 +545,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     chatStampFg).Margin(44, 2, 0, 0);
             }
 
-            var topMargin = startsBurst ? 8.0 : 1.0;
-            var bottomMargin = endsBurst ? 8.0 : 1.0;
+            var topMargin = startsBurst ? 4.0 : 1.0;
+            var bottomMargin = endsBurst ? 4.0 : 1.0;
             return WithHoverHandlers(
                 VStack(2, bubbleRow, footer)
                     .HAlign(HorizontalAlignment.Stretch)
-                    .Margin(12, topMargin, 60, bottomMargin)
+                    .Margin(8, topMargin, 64, bottomMargin)
                     .AutomationName(entry.Text ?? ""),
                 entry.Id);
         }
@@ -564,21 +564,39 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         {
             var kindLabel = entry.ToolName ?? "tool";
 
-            var statusGlyph = entry.ToolResult switch
+            // Status pill colors — adopted from Kenny's ComponentLibrary
+            // Cat04 tool cards. Same palette as the web Control UI.
+            //   Running #FFDC781E (orange)
+            //   Done    #FF28A050 (green)
+            //   Yielded #FF8888AA (gray)        — not yet emitted by us
+            //   Error   SystemFillColorCriticalBrush
+            string statusText;
+            Brush statusBg;
+            switch (entry.ToolResult)
             {
-                ChatToolCallStatus.Success => "✓",
-                ChatToolCallStatus.Error => "✗",
-                _ => "⋯"
-            };
-            var statusFg = entry.ToolResult switch
+                case ChatToolCallStatus.Success:
+                    statusText = "Done";
+                    statusBg = new SolidColorBrush(Color.FromArgb(0xFF, 0x28, 0xA0, 0x50));
+                    break;
+                case ChatToolCallStatus.Error:
+                    statusText = "Error";
+                    statusBg = themeBrush("SystemFillColorCriticalBrush");
+                    break;
+                default:
+                    statusText = "Running";
+                    statusBg = new SolidColorBrush(Color.FromArgb(0xFF, 0xDC, 0x78, 0x1E));
+                    break;
+            }
+
+            // Lightning glyph color follows pill status so the header reads
+            // at a glance even before the pill is in view.
+            Brush statusFg = entry.ToolResult switch
             {
-                ChatToolCallStatus.Success => Ref("SystemFillColorSuccessBrush"),
-                ChatToolCallStatus.Error => Ref("SystemFillColorCriticalBrush"),
-                _ => TertiaryText
+                ChatToolCallStatus.Success => statusBg,
+                ChatToolCallStatus.Error => statusBg,
+                _ => themeBrush("TextFillColorTertiaryBrush")
             };
 
-            // Tone matches dash-light --bg-muted/--border for visual parity
-            // with the web's `chat-tool-card`.
             // Brushes used by the expanded body — match the web's
             // `__block-preview` / `__block-content` palette.
             var blockBg            = themeBrush("ControlFillColorTertiaryBrush");
@@ -613,10 +631,19 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                             t.MaxLines = 1;
                         })
                         .VAlign(VerticalAlignment.Center).Flex(grow: 1),
+                    // Status pill — Kenny's CornerRadius 10 / Padding 6,1
+                    // colored capsule with white text. Only on the output
+                    // chip (the call chip's status is implicit in "Tool call").
                     When(token.EndsWith(":out"),
-                        () => Caption(statusGlyph).Foreground(statusFg)
-                            .Set(t => { t.FontSize = 12; })
-                            .VAlign(VerticalAlignment.Center))
+                        () => Border(
+                            Caption(statusText)
+                                .Foreground(new SolidColorBrush(Colors.White))
+                                .Set(t => { t.FontSize = 10; })
+                                .VAlign(VerticalAlignment.Center)
+                        ).Background(statusBg)
+                         .CornerRadius(10)
+                         .Padding(6, 1, 6, 1)
+                         .VAlign(VerticalAlignment.Center))
                 ) with { ColumnGap = 6 }).Padding(10, 6, 10, 6);
 
                 Element body;
@@ -762,47 +789,80 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             ChatTimelineItemKind.Assistant => RenderAssistantEntry(entry, startsBurst, endsBurst),
             ChatTimelineItemKind.ToolCall => RenderToolEntry(entry),
 
-            // Reasoning — show the actual model thought trace in a muted
-            // collapsible panel, with a "thinking" caption when empty.
+            // Reasoning — use a WinUI Expander with a "🧠 Thinking" header,
+            // matching Kenny's ComponentLibrary Cat03/NativeChatThread design.
+            // Collapsed by default so the model thought trace doesn't crowd
+            // the conversation; click to peek.
             ChatTimelineItemKind.Reasoning => entry.Text is { Length: > 0 }
                 ? TimelineInset(
                     Border(
-                        VStack(2,
-                            Caption("Reasoning")
-                                .Foreground(TertiaryText)
-                                .Set(t => { t.FontSize = 11; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; }),
+                        Expander(
+                            "🧠 Thinking",
                             TextBlock(entry.Text)
                                 .Set(t =>
                                 {
                                     t.FontSize = 12;
                                     t.TextWrapping = TextWrapping.Wrap;
                                     t.IsTextSelectionEnabled = true;
-                                    t.FontStyle = global::Windows.UI.Text.FontStyle.Italic;
+                                    t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
                                 })
                                 .Foreground(TertiaryText)
-                        )
-                    ).Padding(12, 8, 12, 8)
-                     .Background(Ref("SubtleFillColorTertiaryBrush"))
-                     .CornerRadius(6)
-                     .WithBorder(toolCardBorderBrush, 1),
+                                .Padding(0, 4, 0, 4),
+                            isExpanded: false)
+                        .Set(e =>
+                        {
+                            e.HorizontalAlignment = HorizontalAlignment.Stretch;
+                            e.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                        })
+                    ).Background(Ref("SubtleFillColorTertiaryBrush"))
+                     .CornerRadius(8)
+                     .WithBorder(new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x8C, 0xB4)), 1)
+                     .Margin(8, 2, 40, 2),
                     top: 4,
                     bottom: 4)
                 : TimelineInset(
-                    Caption("thinking…").Foreground(TertiaryText)
+                    Caption("🧠 thinking…").Foreground(TertiaryText)
                         .Set(t => { t.FontStyle = global::Windows.UI.Text.FontStyle.Italic; t.FontSize = 12; })),
 
             // Filtered status — drop transient connection chatter.
             ChatTimelineItemKind.Status when entry.Text.Contains("Restored") || entry.Text.Contains("Connecting to") || entry.Text.Contains("Connected") || entry.Text.Contains("Resuming") => Empty(),
 
+            // Error status — centered red pill (Kenny's Cat10 system-notice
+            // pattern: small bordered capsule, tinted background, glyph + text).
             ChatTimelineItemKind.Status when entry.Tone == ChatTone.Error =>
-                TimelineInset(
-                    Caption(entry.Text).Foreground(Ref("SystemFillColorCriticalBrush"))
-                        .Set(t => { t.TextWrapping = TextWrapping.Wrap; t.FontSize = 12; }),
-                    top: 4,
-                    bottom: 4),
+                Border(
+                    Border(
+                        (FlexRow(
+                            Caption("⚠").Foreground(themeBrush("SystemFillColorCriticalBrush"))
+                                .Set(t => { t.FontSize = 12; })
+                                .VAlign(VerticalAlignment.Center),
+                            Caption(entry.Text).Foreground(themeBrush("SystemFillColorCriticalBrush"))
+                                .Set(t => { t.FontSize = 12; t.TextWrapping = TextWrapping.Wrap; })
+                                .VAlign(VerticalAlignment.Center)
+                        ) with { ColumnGap = 6 })
+                    ).Background(new SolidColorBrush(Color.FromArgb(0x2E, 0xC8, 0x32, 0x32)))  // crimson @ ~18%
+                     .CornerRadius(12)
+                     .Padding(10, 4, 10, 4)
+                     .HAlign(HorizontalAlignment.Center)
+                ).Margin(0, 4, 0, 4),
 
-            ChatTimelineItemKind.Status => TimelineInset(
-                Caption(entry.Text).Foreground(TertiaryText).Set(t => t.FontSize = 12)),
+            // Generic status — small dim centered pill at 18% tint.
+            ChatTimelineItemKind.Status =>
+                Border(
+                    Border(
+                        (FlexRow(
+                            Caption("ℹ").Foreground(TertiaryText)
+                                .Set(t => { t.FontSize = 12; })
+                                .VAlign(VerticalAlignment.Center),
+                            Caption(entry.Text).Foreground(TertiaryText)
+                                .Set(t => { t.FontSize = 12; t.TextWrapping = TextWrapping.Wrap; })
+                                .VAlign(VerticalAlignment.Center)
+                        ) with { ColumnGap = 6 })
+                    ).Background(themeBrush("SubtleFillColorTertiaryBrush"))
+                     .CornerRadius(12)
+                     .Padding(10, 4, 10, 4)
+                     .HAlign(HorizontalAlignment.Center)
+                ).Margin(0, 4, 0, 4),
 
              _ => Empty()
         };
