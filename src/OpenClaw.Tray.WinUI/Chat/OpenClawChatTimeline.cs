@@ -462,16 +462,18 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                         t.TextWrapping = TextWrapping.Wrap;
                         t.IsTextSelectionEnabled = true;
                         t.FontSize = 14;
-                        t.LineHeight = 20;
                         t.Foreground = userBubbleFg;
                     })
-                    .Padding(14, 10, 14, 10)
             ).Background(userBubbleBg).CornerRadius(10)
-             .Set(b => b.MaxWidth = 560)
-             // Center the bubble vertically within the row — the avatar
-             // forces the row to 36px so a 1-line bubble would otherwise
-             // stretch and pin its text to the top.
-             .VAlign(VerticalAlignment.Center);
+             .Set(b =>
+             {
+                 b.MaxWidth = 560;
+                 // Generous symmetric padding: bubble auto-sizes to content,
+                 // so equal top/bottom padding gives natural vertical centering.
+                 // Big enough horizontal padding to give 1-line text real margin.
+                 b.Padding = new Thickness(14, 8, 14, 8);                 
+                 b.VerticalAlignment = VerticalAlignment.Center;
+             });
 
             // Avatar shown only on the LAST entry of a same-sender burst.
             // Mid-burst entries get a 36px-wide spacer so bubbles align.
