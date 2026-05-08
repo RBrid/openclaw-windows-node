@@ -298,23 +298,34 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // Colors here mirror the CSS variables exactly so bubbles/avatars
         // look identical to the web at http://localhost:18789/chat.
         // ──────────────────────────────────────────────────────────────
-        var chatPageBg          = new SolidColorBrush(Color.FromArgb(0xFF, 0xF7, 0xF2, 0xEC)); // --bg
-        var assistantBubbleBg   = new SolidColorBrush(Color.FromArgb(0xFF, 0xE8, 0xDD, 0xD2)); // --bg-muted
-        var assistantBubbleBdr  = new SolidColorBrush(Color.FromArgb(0xFF, 0xDD, 0xD0, 0xC2)); // --border
-        var userBubbleBg        = new SolidColorBrush(Color.FromArgb(0x33, 0x6E, 0x48, 0x28)); // --accent-subtle (#6e4828 @ 20%; CSS uses 12% but 20% reads better in WinUI sRGB)
-        var userBubbleBdr       = new SolidColorBrush(Color.FromArgb(0x33, 0x6E, 0x48, 0x28)); // accent @ 20%
-        var avatarPanelBg       = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xE8, 0xE0)); // --panel-strong
-        var avatarBorder        = new SolidColorBrush(Color.FromArgb(0xFF, 0xDD, 0xD0, 0xC2)); // --border
-        var assistantAvatarFg   = new SolidColorBrush(Color.FromArgb(0xFF, 0x75, 0x60, 0x50)); // --muted
-        var userAvatarBg        = new SolidColorBrush(Color.FromArgb(0x33, 0x6E, 0x48, 0x28));
-        var userAvatarFg        = new SolidColorBrush(Color.FromArgb(0xFF, 0x6E, 0x48, 0x28)); // --accent
-        var chatStampFg         = new SolidColorBrush(Color.FromArgb(0xFF, 0x75, 0x60, 0x50)); // --muted
-        var chatTextFg          = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0x38, 0x28)); // --chat-text
-        var toolCardBgBrush     = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xE8, 0xE0)); // --secondary
-        var toolCardBorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xDD, 0xD0, 0xC2));
+        // ── Kenny Hong palette (kenehong/native-chat-v2): Microsoft Fluent
+        // ``AccentFillColorDefaultBrush`` for the user bubble (white text on
+        // accent), ``SubtleFillColorSecondaryBrush`` for the assistant bubble
+        // and page background. All looked up from the theme so they react to
+        // light/dark mode and high-contrast settings without manual swaps.
+        // ─────────────────────────────────────────────────────────────────
+        Brush themeBrush(string key) => (Brush)Microsoft.UI.Xaml.Application.Current.Resources[key];
+        var chatPageBg          = themeBrush("SubtleFillColorSecondaryBrush");
+        var assistantBubbleBg   = themeBrush("SubtleFillColorSecondaryBrush");
+        var assistantBubbleBdr  = themeBrush("ControlStrokeColorDefaultBrush");
+        var userBubbleBg        = themeBrush("AccentFillColorDefaultBrush");
+        var userBubbleBdr       = themeBrush("AccentFillColorDefaultBrush");
+        var userBubbleFg        = themeBrush("TextOnAccentFillColorPrimaryBrush");
+        var avatarPanelBg       = themeBrush("SubtleFillColorTertiaryBrush");
+        var avatarBorder        = themeBrush("ControlStrokeColorDefaultBrush");
+        var assistantAvatarFg   = themeBrush("TextFillColorSecondaryBrush");
+        var userAvatarBg        = themeBrush("AccentFillColorDefaultBrush");
+        var userAvatarFg        = themeBrush("TextOnAccentFillColorPrimaryBrush");
+        var chatStampFg         = themeBrush("TextFillColorTertiaryBrush");
+        var chatTextFg          = themeBrush("TextFillColorPrimaryBrush");
+        // Tool chips kept in a slightly cooler/dim shade so they read as
+        // secondary content next to the assistant bubble.
+        var toolCardBgBrush     = themeBrush("SubtleFillColorTertiaryBrush");
+        var toolCardBorderBrush = themeBrush("ControlStrokeColorDefaultBrush");
 
-        // Avatar: 36×36 rounded square (radius 10px), matches .chat-avatar in CSS.
-        Element AvatarBox(string glyph, Brush bg, Brush border, Brush fg, double size = 36, double radius = 10) =>
+        // Avatar: 36×36 circle (Kenny uses circular avatars). Same constructor
+        // as before but radius defaults to half the size for a perfect circle.
+        Element AvatarBox(string glyph, Brush bg, Brush border, Brush fg, double size = 36, double radius = 18) =>
             Border(
                 TextBlock(glyph)
                     .Set(t =>
@@ -341,11 +352,48 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 .Set(t => t.FontSize = 11)
                 .HAlign(align);
 
+        // Build the WebView-style multi-pill footer:
+        //   "Field   7:54 PM   ↑1475   ↓12   R45.4k   23% ctx   gpt-5.5"
+        // Each pill is a small caption; missing pieces (e.g. token counts not
+        // reported) are silently skipped so the footer just shows what's
+        // known. Not clickable yet — that's deferred until the gateway surfaces
+        // the corresponding metadata.
+        static string FormatTokenCount(int n) =>
+            n >= 1000 ? $"{n / 1000.0:0.#}k" : n.ToString();
+
+        Element BuildAssistantFooter(string sender, string time, string? model,
+            int? inputTokens, int? outputTokens, int? responseTokens, int? contextPct,
+            Brush stampFg)
+        {
+            var parts = new List<Element>();
+            void AddPill(string text)
+            {
+                if (string.IsNullOrEmpty(text)) return;
+                parts.Add(Caption(text).Foreground(stampFg)
+                    .Set(t => t.FontSize = 11)
+                    .VAlign(VerticalAlignment.Center));
+            }
+
+            // Sender is rendered slightly bolder so the eye lands on it first.
+            if (!string.IsNullOrEmpty(sender))
+                parts.Add(Caption(sender).Foreground(stampFg)
+                    .Set(t => { t.FontSize = 11; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; })
+                    .VAlign(VerticalAlignment.Center));
+
+            AddPill(time);
+            if (inputTokens is int inN) AddPill($"↑{FormatTokenCount(inN)}");
+            if (outputTokens is int outN) AddPill($"↓{FormatTokenCount(outN)}");
+            if (responseTokens is int respN) AddPill($"R{FormatTokenCount(respN)}");
+            if (contextPct is int pct) AddPill($"{pct}% ctx");
+            AddPill(model ?? "");
+
+            return (FlexRow(parts.ToArray()) with { ColumnGap = 12 })
+                .HAlign(HorizontalAlignment.Left);
+        }
+
         Element RenderUserEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
         {
-            // Bubble matches .chat-line.user .chat-bubble: accent-subtle bg,
-            // accent border @ 20%, padding 10×14, radius-lg (14px),
-            // max-width min(700, 82%).
+            // User bubble — Microsoft accent fill with white-on-accent text.
             var bubble = Border(
                 TextBlock(entry.Text)
                     .Set(t =>
@@ -353,10 +401,11 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                         t.TextWrapping = TextWrapping.Wrap;
                         t.IsTextSelectionEnabled = true;
                         t.FontSize = 14;
-                        t.Foreground = chatTextFg;
+                        t.LineHeight = 20;
+                        t.Foreground = userBubbleFg;
                     })
                     .Padding(14, 10, 14, 10)
-            ).Background(userBubbleBg).CornerRadius(14)
+            ).Background(userBubbleBg).CornerRadius(16)
              .WithBorder(userBubbleBdr, 1)
              .Set(b => b.MaxWidth = 700);
 
@@ -397,13 +446,13 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 ? AvatarBox("★", avatarPanelBg, avatarBorder, assistantAvatarFg).VAlign(VerticalAlignment.Top)
                 : Border(Empty()).Size(36, 36);
 
-            // Bubble matches .chat-line.assistant .chat-bubble: bg-muted bg,
-            // border @ var(--border).
+            // Assistant bubble — subtle gray with primary text. Radius 16 to
+            // match Kenny's larger pill shape.
             var card = Border(
                 Markdown(entry.Text ?? "", _markdownOptions)
                     .Padding(14, 10, 14, 10)
             ).Background(assistantBubbleBg)
-             .CornerRadius(14)
+             .CornerRadius(16)
              .WithBorder(assistantBubbleBdr, 1)
              .Set(b => b.MaxWidth = 700);
 
@@ -418,11 +467,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 var entryMeta = MetaFor(entry.Id);
                 var timeStr = FormatTime(entryMeta?.Timestamp);
                 var modelStr = entryMeta?.Model ?? defaultModel;
-                var footerParts = new List<string>(3) { assistantSender };
-                if (!string.IsNullOrEmpty(timeStr)) footerParts.Add(timeStr);
-                if (!string.IsNullOrEmpty(modelStr)) footerParts.Add(modelStr!);
-                var footerText = string.Join(" · ", footerParts);
-                footer = FooterCaption(footerText, HorizontalAlignment.Left).Margin(44, 2, 0, 0);
+                footer = BuildAssistantFooter(assistantSender, timeStr, modelStr,
+                    entryMeta?.InputTokens, entryMeta?.OutputTokens,
+                    entryMeta?.ResponseTokens, entryMeta?.ContextPercent,
+                    chatStampFg).Margin(44, 2, 0, 0);
             }
 
             var topMargin = startsBurst ? 8.0 : 1.0;

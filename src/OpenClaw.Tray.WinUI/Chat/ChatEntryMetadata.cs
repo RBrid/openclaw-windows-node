@@ -5,9 +5,9 @@ namespace OpenClawTray.Chat;
 /// in parallel to the vendored <see cref="ChatSample.Chat.Model.ChatTimelineItem"/>.
 /// Tracks values that the upstream <c>ChatTimelineItem</c> record doesn't
 /// carry — specifically the wall-clock timestamp of when the entry was
-/// created and which model was active at that moment — so the timeline
-/// renderer can show a "<c>&lt;sender&gt; · &lt;time&gt; · &lt;model&gt;</c>"
-/// footer beneath each message.
+/// created, the model active at that moment, and gateway-reported usage
+/// counters — so the timeline renderer can show a richer footer like
+/// <c>Field · 7:54 PM · ↑1475 ↓12 R45.4k 23% ctx · gpt-5.5</c>.
 /// </summary>
 /// <param name="Timestamp">
 /// Local-time timestamp of when the entry was created. <c>null</c> when the
@@ -18,4 +18,28 @@ namespace OpenClawTray.Chat;
 /// taken from <see cref="OpenClaw.Shared.SessionInfo.Model"/>). <c>null</c>
 /// when the model is unknown.
 /// </param>
-public sealed record ChatEntryMetadata(DateTimeOffset? Timestamp, string? Model);
+/// <param name="InputTokens">
+/// Cumulative input (prompt) tokens reported by the gateway for this turn,
+/// shown in the footer with an up arrow (<c>↑</c>). <c>null</c> when not
+/// reported (most live ``chat`` deltas don't carry usage info — only the
+/// final summary does).
+/// </param>
+/// <param name="OutputTokens">
+/// Cumulative output tokens reported by the gateway for this turn, shown in
+/// the footer with a down arrow (<c>↓</c>).
+/// </param>
+/// <param name="ResponseTokens">
+/// Total tokens spent on the response (prompt + completion) — surfaces as
+/// <c>R&lt;n&gt;</c> in the footer (e.g. <c>R45.4k</c>).
+/// </param>
+/// <param name="ContextPercent">
+/// Percentage of the model's context window consumed by the conversation
+/// when this entry was generated (0–100). Shown as <c>23% ctx</c>.
+/// </param>
+public sealed record ChatEntryMetadata(
+    DateTimeOffset? Timestamp,
+    string? Model,
+    int? InputTokens = null,
+    int? OutputTokens = null,
+    int? ResponseTokens = null,
+    int? ContextPercent = null);

@@ -118,32 +118,29 @@ public sealed class OpenClawChatRoot : Component
                 DefaultModel: selectedThread.Model,
                 ShowThinkingIndicator: showThinking));
 
-        Element inputBar = selectedThread is not null
-            ? Component<InputBar, InputBarProps>(new(
-                connState,
-                timeline.TurnActive,
-                timeline.PendingPermission,
-                msg => OnSend(selectedThread.Id, msg),
-                () => OnStop(selectedThread.Id),
-                (rid, allow) => OnPermission(selectedThread.Id, rid, allow)))
-            : Empty();
-
-        Element statusBar = selectedThread is not null
-            ? Component<StatusBar, StatusBarProps>(new(
-                selectedThread,
-                snapshot.AvailableModels,
-                model => RunFireAndForget(ct => _provider.SetModelAsync(selectedThread.Id, model, ct)),
-                allowAll => RunFireAndForget(ct => _provider.SetPermissionModeAsync(selectedThread.Id, allowAll, ct))))
+        Element composer = selectedThread is not null
+            ? Component<OpenClawComposer, OpenClawComposerProps>(new(
+                ConnectionState: connState,
+                TurnActive: timeline.TurnActive,
+                PendingPermission: timeline.PendingPermission,
+                ChannelLabel: selectedThread.Title ?? "main",
+                AvailableModels: snapshot.AvailableModels,
+                CurrentModel: selectedThread.Model,
+                OnSend: msg => OnSend(selectedThread.Id, msg),
+                OnStop: () => OnStop(selectedThread.Id),
+                OnPermissionResponse: (rid, allow) => OnPermission(selectedThread.Id, rid, allow),
+                OnModelChanged: model => RunFireAndForget(ct => _provider.SetModelAsync(selectedThread.Id, model, ct)),
+                OnPermissionsChanged: allowAll => RunFireAndForget(ct => _provider.SetPermissionModeAsync(selectedThread.Id, allowAll, ct))))
             : Empty();
 
         var divider = Border(Empty()).Height(1).Background(DividerStroke);
 
-        return Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Star(), GridSize.Auto, GridSize.Auto],
+        // Three rows now (composer absorbs the old StatusBar).
+        return Grid([GridSize.Star()], [GridSize.Auto, GridSize.Auto, GridSize.Star(), GridSize.Auto],
             header.Grid(row: 0, column: 0),
             divider.Grid(row: 1, column: 0),
             body.Grid(row: 2, column: 0),
-            inputBar.Grid(row: 3, column: 0),
-            statusBar.Grid(row: 4, column: 0)
+            composer.Grid(row: 3, column: 0)
         );
     }
 
