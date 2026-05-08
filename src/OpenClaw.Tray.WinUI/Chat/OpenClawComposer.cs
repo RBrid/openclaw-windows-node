@@ -35,11 +35,13 @@ public record OpenClawComposerProps(
     bool TurnActive,
     ChatPermissionRequest? PendingPermission,
     string ChannelLabel,
+    string[] AvailableChannels,
     string[] AvailableModels,
     string? CurrentModel,
     Action<string> OnSend,
     Action OnStop,
     Action<string, bool> OnPermissionResponse,
+    Action<string> OnChannelChanged,
     Action<string> OnModelChanged,
     Action<bool> OnPermissionsChanged);
 
@@ -70,8 +72,16 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
         };
 
         // ── Row 1: three compact dropdowns ─────────────────────────────
-        var channelOptions = new[] { Props.ChannelLabel ?? "main" };
-        var channelCombo = ComboBox(channelOptions, 0, _ => { /* read-only for now */ })
+        var channelOptions = Props.AvailableChannels is { Length: > 0 }
+            ? Props.AvailableChannels
+            : new[] { Props.ChannelLabel ?? "main" };
+        var channelIndex = Array.IndexOf(channelOptions, Props.ChannelLabel ?? "");
+        if (channelIndex < 0) channelIndex = 0;
+        var channelCombo = ComboBox(channelOptions, channelIndex, idx =>
+            {
+                if (idx >= 0 && idx < channelOptions.Length)
+                    Props.OnChannelChanged(channelOptions[idx]);
+            })
             .Set(cb =>
             {
                 cb.MinWidth = 80;

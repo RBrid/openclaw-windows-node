@@ -523,7 +523,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
              .Set(b => b.MaxWidth = 700);
 
             // Speak icon (read aloud) — visible only on hover.
-            var speakIcon = HoverIcon(entry.Id, "\uE767", "Read aloud", () => { /* TODO: wire to TTS */ })
+            var speakIcon = HoverIcon(entry.Id, "\uE767", "Read aloud",
+                () => _ = ChatSpeakHelper.SpeakAsync(entry.Text ?? ""))
                 .VAlign(VerticalAlignment.Center);
 
             var bubbleRow = (FlexRow(

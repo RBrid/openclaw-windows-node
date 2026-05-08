@@ -1801,11 +1801,21 @@ public class OpenClawGatewayClient : WebSocketClientBase
         if (payload.TryGetProperty("sessionKey", out var skProp))
             sessionKey = skProp.GetString() ?? "main";
 
+        // Best-effort usage extraction — gateway emits this only on terminal
+        // (state="final") events in practice; we still read it defensively
+        // from common locations so any reasonable shape lights up the chat
+        // footer pills.
+        var (inTok, outTok, respTok, ctxPct) = ExtractChatUsage(payload);
+
         // Try new format: payload.message.role + payload.message.content[].text
         if (payload.TryGetProperty("message", out var message))
         {
             var role = message.TryGetProperty("role", out var roleProp) ? roleProp.GetString() ?? "" : "";
             var state = payload.TryGetProperty("state", out var stateProp) ? stateProp.GetString() : null;
+
+            // Usage block may also live on the inner ``message`` object.
+            if (inTok is null && outTok is null && respTok is null && ctxPct is null)
+                (inTok, outTok, respTok, ctxPct) = ExtractChatUsage(message);
 
             if (message.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
             {
@@ -1817,7 +1827,7 @@ public class OpenClawGatewayClient : WebSocketClientBase
                         var text = textProp.GetString() ?? "";
                         if (string.IsNullOrEmpty(text)) continue;
 
-                        EmitChatMessageReceived(sessionKey, role, text, state);
+                        EmitChatMessageReceived(sessionKey, role, text, state, inTok, outTok, respTok, ctxPct);
 
                         if (role == "assistant" && string.Equals(state, "final", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1838,7 +1848,7 @@ public class OpenClawGatewayClient : WebSocketClientBase
 
             if (!string.IsNullOrEmpty(text))
             {
-                EmitChatMessageReceived(sessionKey, role, text, state);
+                EmitChatMessageReceived(sessionKey, role, text, state, inTok, outTok, respTok, ctxPct);
 
                 if (role == "assistant")
                 {
@@ -1849,7 +1859,58 @@ public class OpenClawGatewayClient : WebSocketClientBase
         }
     }
 
-    private void EmitChatMessageReceived(string sessionKey, string role, string text, string? state)
+    /// <summary>
+    /// Defensive extraction of a usage / token block from a chat event
+    /// payload. Walks several known shapes: <c>usage.{input,output,total,
+    /// inputTokens,outputTokens,totalTokens,promptTokens,completionTokens}</c>
+    /// plus a few alternate top-level keys (<c>tokens</c>, <c>contextPercent</c>,
+    /// <c>contextUsage</c>). Returns nulls when nothing matches; callers
+    /// surface those as omitted footer pills.
+    /// </summary>
+    private static (int? input, int? output, int? response, int? contextPct)
+        ExtractChatUsage(JsonElement node)
+    {
+        if (node.ValueKind != JsonValueKind.Object) return (null, null, null, null);
+
+        int? input = null, output = null, response = null, ctx = null;
+
+        static int? ReadInt(JsonElement e, string key)
+        {
+            if (!e.TryGetProperty(key, out var v)) return null;
+            return v.ValueKind switch
+            {
+                JsonValueKind.Number when v.TryGetInt32(out var i) => i,
+                JsonValueKind.Number => (int)v.GetDouble(),
+                _ => null
+            };
+        }
+
+        // Walk usage / tokens nested objects.
+        foreach (var key in new[] { "usage", "tokens", "tokenUsage" })
+        {
+            if (!node.TryGetProperty(key, out var u) || u.ValueKind != JsonValueKind.Object)
+                continue;
+            input ??= ReadInt(u, "input") ?? ReadInt(u, "inputTokens") ?? ReadInt(u, "promptTokens");
+            output ??= ReadInt(u, "output") ?? ReadInt(u, "outputTokens") ?? ReadInt(u, "completionTokens");
+            response ??= ReadInt(u, "total") ?? ReadInt(u, "totalTokens") ?? ReadInt(u, "response") ?? ReadInt(u, "responseTokens");
+            ctx ??= ReadInt(u, "contextPercent") ?? ReadInt(u, "context") ?? ReadInt(u, "ctxPercent");
+        }
+
+        // Top-level fallbacks.
+        input ??= ReadInt(node, "inputTokens") ?? ReadInt(node, "promptTokens");
+        output ??= ReadInt(node, "outputTokens") ?? ReadInt(node, "completionTokens");
+        response ??= ReadInt(node, "totalTokens") ?? ReadInt(node, "responseTokens");
+        ctx ??= ReadInt(node, "contextPercent") ?? ReadInt(node, "ctxPercent");
+
+        // Synthesize total from input+output when only the parts are known.
+        if (response is null && input is int inN && output is int outN)
+            response = inN + outN;
+
+        return (input, output, response, ctx);
+    }
+
+    private void EmitChatMessageReceived(string sessionKey, string role, string text, string? state,
+        int? inputTokens = null, int? outputTokens = null, int? responseTokens = null, int? contextPct = null)
     {
         try
         {
@@ -1858,7 +1919,11 @@ public class OpenClawGatewayClient : WebSocketClientBase
                 SessionKey = sessionKey,
                 Role = role,
                 Text = text,
-                State = state
+                State = state,
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                ResponseTokens = responseTokens,
+                ContextPercent = contextPct
             });
         }
         catch (Exception ex)

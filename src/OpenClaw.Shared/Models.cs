@@ -1535,6 +1535,29 @@ public class ChatMessageInfo
 
     /// <summary>Unix epoch milliseconds when the gateway logged this message (0 if unknown).</summary>
     public long Ts { get; set; }
+
+    /// <summary>
+    /// Optional cumulative input (prompt) token count for the turn this
+    /// message belongs to, when the gateway includes a <c>usage</c> block on
+    /// the chat event payload. <c>null</c> when not reported (deltas usually
+    /// don't carry this; the final summary or lifecycle event does).
+    /// </summary>
+    public int? InputTokens { get; set; }
+
+    /// <summary>Optional cumulative output token count.</summary>
+    public int? OutputTokens { get; set; }
+
+    /// <summary>
+    /// Optional total response token count (input + output, surfaced as
+    /// <c>R&lt;n&gt;</c> in the assistant footer).
+    /// </summary>
+    public int? ResponseTokens { get; set; }
+
+    /// <summary>
+    /// Optional percentage of model context window consumed (0–100), shown as
+    /// <c>23% ctx</c> in the footer.
+    /// </summary>
+    public int? ContextPercent { get; set; }
 }
 
 /// <summary>

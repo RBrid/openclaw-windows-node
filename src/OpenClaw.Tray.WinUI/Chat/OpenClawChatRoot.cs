@@ -118,17 +118,32 @@ public sealed class OpenClawChatRoot : Component
                 DefaultModel: selectedThread.Model,
                 ShowThinkingIndicator: showThinking));
 
+        // Distinct list of channel labels (= thread titles) — feeds the
+        // composer's first ComboBox so the user can switch chats from the
+        // composer, not just the side rail.
+        var channelTitles = snapshot.Threads
+            .Select(t => t.Title)
+            .Where(t => !string.IsNullOrEmpty(t))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
         Element composer = selectedThread is not null
             ? Component<OpenClawComposer, OpenClawComposerProps>(new(
                 ConnectionState: connState,
                 TurnActive: timeline.TurnActive,
                 PendingPermission: timeline.PendingPermission,
                 ChannelLabel: selectedThread.Title ?? "main",
+                AvailableChannels: channelTitles,
                 AvailableModels: snapshot.AvailableModels,
                 CurrentModel: selectedThread.Model,
                 OnSend: msg => OnSend(selectedThread.Id, msg),
                 OnStop: () => OnStop(selectedThread.Id),
                 OnPermissionResponse: (rid, allow) => OnPermission(selectedThread.Id, rid, allow),
+                OnChannelChanged: title =>
+                {
+                    var match = Array.Find(snapshot.Threads, t => t.Title == title);
+                    if (match is not null) selectedIdState.Set(match.Id);
+                },
                 OnModelChanged: model => RunFireAndForget(ct => _provider.SetModelAsync(selectedThread.Id, model, ct)),
                 OnPermissionsChanged: allowAll => RunFireAndForget(ct => _provider.SetPermissionModeAsync(selectedThread.Id, allowAll, ct))))
             : Empty();

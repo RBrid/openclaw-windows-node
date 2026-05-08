@@ -537,7 +537,24 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
 
         var threadId = string.IsNullOrEmpty(message.SessionKey) ? "main" : message.SessionKey;
         ChatEntryMetadata? meta;
-        lock (_gate) { meta = BuildLiveMetaLocked(threadId, message.Ts); }
+        lock (_gate)
+        {
+            meta = BuildLiveMetaLocked(threadId, message.Ts);
+            // If the gateway included a usage block on this chat event,
+            // attach it so the assistant footer pills (↑/↓/R/ctx%) can
+            // render. Mostly arrives on state="final" frames.
+            if (message.InputTokens is not null || message.OutputTokens is not null
+                || message.ResponseTokens is not null || message.ContextPercent is not null)
+            {
+                meta = meta with
+                {
+                    InputTokens = message.InputTokens ?? meta.InputTokens,
+                    OutputTokens = message.OutputTokens ?? meta.OutputTokens,
+                    ResponseTokens = message.ResponseTokens ?? meta.ResponseTokens,
+                    ContextPercent = message.ContextPercent ?? meta.ContextPercent
+                };
+            }
+        }
 
         // Both `state: "delta"` and `state: "final"` carry the cumulative
         // assistant text (the gateway's EmbeddedBlockChunker emits completed
@@ -1015,14 +1032,35 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             // existing entries (e.g. UpsertAssistant on the active assistant)
             // intentionally don't overwrite — the original creation timestamp
             // for the turn is more useful than the most-recent-delta time.
+            // EXCEPTION: if the new metadata carries usage tokens (only
+            // emitted on terminal frames), merge them into the existing entry
+            // so the footer pills (↑/↓/R/ctx%) light up at end-of-turn.
             if (meta is not null)
             {
                 var threadMeta = GetOrCreateThreadMetaLocked(threadId);
+                var hasUsage = meta.InputTokens is not null || meta.OutputTokens is not null
+                    || meta.ResponseTokens is not null || meta.ContextPercent is not null;
                 for (int i = 0; i < next.Entries.Count; i++)
                 {
                     var id = next.Entries[i].Id;
-                    if (!beforeIds.Contains(id) && !threadMeta.ContainsKey(id))
+                    var isNew = !beforeIds.Contains(id);
+                    if (isNew && !threadMeta.ContainsKey(id))
+                    {
                         threadMeta[id] = meta;
+                    }
+                    else if (hasUsage && threadMeta.TryGetValue(id, out var existing)
+                        && (existing.InputTokens is null && existing.OutputTokens is null))
+                    {
+                        // Merge usage onto the existing assistant entry whose
+                        // text was just upserted by this final delta.
+                        threadMeta[id] = existing with
+                        {
+                            InputTokens = meta.InputTokens ?? existing.InputTokens,
+                            OutputTokens = meta.OutputTokens ?? existing.OutputTokens,
+                            ResponseTokens = meta.ResponseTokens ?? existing.ResponseTokens,
+                            ContextPercent = meta.ContextPercent ?? existing.ContextPercent
+                        };
+                    }
                 }
             }
 
