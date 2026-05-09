@@ -1,4 +1,4 @@
-using ChatSample.Chat.Model;
+using OpenClaw.Chat;
 using OpenClaw.Shared;
 using OpenClawTray.Chat;
 using System.Text.Json;

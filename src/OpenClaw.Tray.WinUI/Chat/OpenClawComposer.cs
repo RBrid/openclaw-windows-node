@@ -1,4 +1,5 @@
-using ChatSample.Chat.Model;
+using OpenClaw.Chat;
+using OpenClawTray.Helpers;
 using Microsoft.UI;
 using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
@@ -47,7 +48,12 @@ public record OpenClawComposerProps(
 
 public sealed class OpenClawComposer : Component<OpenClawComposerProps>
 {
-    private static readonly string[] s_reasoningOptions = new[] { "Default", "Auto", "Maximum" };
+    private static string[] ReasoningOptions() => new[]
+    {
+        LocalizationHelper.GetString("Chat_Composer_Reasoning_Default"),
+        LocalizationHelper.GetString("Chat_Composer_Reasoning_Auto"),
+        LocalizationHelper.GetString("Chat_Composer_Reasoning_Maximum"),
+    };
 
     public override Element Render()
     {
@@ -66,9 +72,9 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
         var isConnected = Props.ConnectionState == "connected";
         var placeholder = Props.ConnectionState switch
         {
-            "connected" => "Message Assistant (Enter to send)",
-            "connecting" => "Connecting…",
-            _ => "Not connected"
+            "connected" => LocalizationHelper.GetString("Chat_Composer_Placeholder_Connected"),
+            "connecting" => LocalizationHelper.GetString("Chat_Composer_Placeholder_Connecting"),
+            _ => LocalizationHelper.GetString("Chat_Composer_Placeholder_NotConnected")
         };
 
         // ── Row 1: three compact dropdowns ─────────────────────────────
@@ -110,7 +116,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
             cb.CornerRadius = new CornerRadius(4);
         }).VAlign(VerticalAlignment.Center);
 
-        var reasoningCombo = ComboBox(s_reasoningOptions, 0, _ => { /* not yet wired */ })
+        var reasoningCombo = ComboBox(ReasoningOptions(), 0, _ => { /* not yet wired */ })
             .Set(cb =>
             {
                 cb.MinWidth = 100;
@@ -172,9 +178,9 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                 .Set("ButtonBorderBrushPressed", new SolidColorBrush(Colors.Transparent)))
             .AutomationName(tip);
 
-        var attachBtn = IconButton("\uE723", "Attach", () => { });
-        var voiceBtn = IconButton("\uE720", "Voice", () => { });
-        var moreBtn = IconButton("\uE712", "More", () => { });
+        var attachBtn = IconButton("\uE723", LocalizationHelper.GetString("Chat_Composer_Tooltip_Attach"), () => { });
+        var voiceBtn = IconButton("\uE720", LocalizationHelper.GetString("Chat_Composer_Tooltip_Voice"), () => { });
+        var moreBtn = IconButton("\uE712", LocalizationHelper.GetString("Chat_Composer_Tooltip_More"), () => { });
 
         // Send button (filled accent blue with white glyph) or Stop button when turn active.
         Element actionBtn = Props.TurnActive
@@ -192,8 +198,8 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                 b.Padding = new Thickness(10, 4, 10, 4);
                 b.MinWidth = 36; b.MinHeight = 28;
                 b.CornerRadius = new CornerRadius(4);
-                b.Background = ChatSample.Chat.UI.Res.Get("SystemFillColorCriticalBrush");
-            }).AutomationName("Stop")
+                b.Background = OpenClaw.Chat.Res.Get("SystemFillColorCriticalBrush");
+            }).AutomationName(LocalizationHelper.GetString("Chat_Composer_Tooltip_Stop"))
             : Button(
                 TextBlock("\uE724")
                     .Set(t =>
@@ -211,7 +217,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                 b.IsEnabled = isConnected && !string.IsNullOrWhiteSpace(inputState.Value);
                 // Kenny's exact accent for Send: #0078D4
                 b.Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x78, 0xD4));
-            }).AutomationName("Send");
+            }).AutomationName(LocalizationHelper.GetString("Chat_Composer_Tooltip_Send"));
 
         var actionsRow = Grid([GridSize.Star(), GridSize.Auto], [GridSize.Auto],
             (FlexRow(attachBtn, voiceBtn, moreBtn, actionBtn)
@@ -224,7 +230,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
         Element workingBanner = Props.TurnActive
             ? (FlexRow(
                 ProgressRing().Size(16, 16),
-                Caption("Assistant is working…").Foreground(SecondaryText)
+                Caption(LocalizationHelper.GetString("Chat_Composer_AssistantWorking")).Foreground(SecondaryText)
               ) with { ColumnGap = 8 }).Padding(16, 8, 16, 0)
             : Empty();
 
@@ -234,9 +240,9 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                     TextBlock($"⚠ {perm.ToolName}: {perm.Detail}")
                         .Set(t => { t.TextWrapping = TextWrapping.Wrap; t.TextTrimming = TextTrimming.CharacterEllipsis; })
                         .HAlign(HorizontalAlignment.Stretch),
-                    Button("Allow", () => Props.OnPermissionResponse(perm.RequestId, true))
+                    Button(LocalizationHelper.GetString("Chat_Permission_Allow"), () => Props.OnPermissionResponse(perm.RequestId, true))
                         .Background(Accent).Set(b => { b.CornerRadius = new CornerRadius(4); b.Padding = new Thickness(12, 4, 12, 4); b.MinWidth = 0; b.MinHeight = 0; }),
-                    Button("Deny", () => Props.OnPermissionResponse(perm.RequestId, false))
+                    Button(LocalizationHelper.GetString("Chat_Permission_Deny"), () => Props.OnPermissionResponse(perm.RequestId, false))
                         .Set(b => { b.CornerRadius = new CornerRadius(4); b.Padding = new Thickness(12, 4, 12, 4); b.MinWidth = 0; b.MinHeight = 0; })
                 ).Padding(12, 8, 12, 8)
               ).Background(SubtleFill).CornerRadius(8).WithBorder(DividerStroke, 1).Margin(12, 4, 12, 4)

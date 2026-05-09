@@ -1,5 +1,6 @@
-using ChatSample.Chat.Model;
-using ChatSample.Chat.UI;
+using OpenClaw.Chat;
+using OpenClaw.Chat;
+using OpenClawTray.Helpers;
 using Microsoft.UI;
 using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
@@ -278,7 +279,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 
         // Load more button — outside the repeated items
         var loadMoreButton = Props.HasMoreHistory
-            ? Button("Load earlier messages", () => Props.OnLoadMoreHistory?.Invoke())
+            ? Button(LocalizationHelper.GetString("Chat_Timeline_LoadEarlier"), () => Props.OnLoadMoreHistory?.Invoke())
                 .HAlign(HorizontalAlignment.Center)
                 .Set(b => { b.Padding = new Thickness(16, 8, 16, 8); b.CornerRadius = new CornerRadius(4); })
                 .Resources(r => r
@@ -535,15 +536,9 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                  b.Padding = new Thickness(14, 8, 14, 8);
              });
 
-            // Speak icon (read aloud) — visible only on hover.
-            var speakIcon = HoverIcon(entry.Id, "\uE767", "Read aloud",
-                () => _ = ChatSpeakHelper.SpeakAsync(entry.Text ?? ""))
-                .VAlign(VerticalAlignment.Center);
-
             var bubbleRow = (FlexRow(
                 leftSlot,
-                card,
-                speakIcon
+                card
             ) with { ColumnGap = 8 }).HAlign(HorizontalAlignment.Left);
 
             Element footer = Empty();
@@ -588,15 +583,15 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             switch (entry.ToolResult)
             {
                 case ChatToolCallStatus.Success:
-                    statusText = "Done";
+                    statusText = LocalizationHelper.GetString("Chat_Status_Done");
                     statusBg = new SolidColorBrush(Color.FromArgb(0xFF, 0x28, 0xA0, 0x50));
                     break;
                 case ChatToolCallStatus.Error:
-                    statusText = "Error";
+                    statusText = LocalizationHelper.GetString("Chat_Status_Error");
                     statusBg = themeBrush("SystemFillColorCriticalBrush");
                     break;
                 default:
-                    statusText = "Running";
+                    statusText = LocalizationHelper.GetString("Chat_Status_Running");
                     statusBg = new SolidColorBrush(Color.FromArgb(0xFF, 0xDC, 0x78, 0x1E));
                     break;
             }
@@ -768,8 +763,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 : kindLabel;
             var callChip = BuildChip(
                 token: $"{entry.Id}:call",
-                label: "Tool call",
-                sectionLabel: "Tool input",
+                label: LocalizationHelper.GetString("Chat_Tool_CallLabel"),
+                sectionLabel: LocalizationHelper.GetString("Chat_Tool_InputSection"),
                 contentText: callContent,
                 hasContent: !string.IsNullOrEmpty(callContent));
 
@@ -778,15 +773,21 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             Element outputChip = hasOutput
                 ? BuildChip(
                     token: $"{entry.Id}:out",
-                    label: entry.ToolResult == ChatToolCallStatus.Error ? "Tool error" : "Tool output",
-                    sectionLabel: entry.ToolResult == ChatToolCallStatus.Error ? "Tool error" : "Tool output",
+                    label: entry.ToolResult == ChatToolCallStatus.Error
+                        ? LocalizationHelper.GetString("Chat_Tool_ErrorLabel")
+                        : LocalizationHelper.GetString("Chat_Tool_OutputLabel"),
+                    sectionLabel: entry.ToolResult == ChatToolCallStatus.Error
+                        ? LocalizationHelper.GetString("Chat_Tool_ErrorLabel")
+                        : LocalizationHelper.GetString("Chat_Tool_OutputLabel"),
                     contentText: entry.ToolOutput!,
                     hasContent: true)
                 : Empty();
 
             var entryMeta = MetaFor(entry.Id);
             var timeStr = FormatTime(entryMeta?.Timestamp);
-            var footerText = string.IsNullOrEmpty(timeStr) ? "Tool" : $"Tool · {timeStr}";
+            var footerText = string.IsNullOrEmpty(timeStr)
+                ? LocalizationHelper.GetString("Chat_Tool_FooterLabel")
+                : string.Format(LocalizationHelper.GetString("Chat_Tool_FooterWithTimeFormat"), timeStr);
 
             return VStack(4,
                 callChip,
@@ -810,7 +811,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 ? TimelineInset(
                     Border(
                         Expander(
-                            "🧠 Thinking",
+                            LocalizationHelper.GetString("Chat_Reasoning_ThinkingHeader"),
                             TextBlock(entry.Text)
                                 .Set(t =>
                                 {
@@ -834,7 +835,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     top: 4,
                     bottom: 4)
                 : TimelineInset(
-                    Caption("🧠 thinking…").Foreground(TertiaryText)
+                    Caption(LocalizationHelper.GetString("Chat_Reasoning_ThinkingEllipsis")).Foreground(TertiaryText)
                         .Set(t => { t.FontStyle = global::Windows.UI.Text.FontStyle.Italic; t.FontSize = 12; })),
 
             // Filtered status — drop transient connection chatter.
@@ -906,7 +907,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             thinkingIndicator = Border(
                 (FlexRow(
                     AvatarBox("★", avatarPanelBg, avatarBorder, assistantAvatarFg).VAlign(VerticalAlignment.Center),
-                    Caption($"{assistantSender} is thinking…")
+                    Caption(string.Format(LocalizationHelper.GetString("Chat_Timeline_AssistantThinkingFormat"), assistantSender))
                         .Foreground(chatStampFg)
                         .Set(t => { t.FontStyle = global::Windows.UI.Text.FontStyle.Italic; t.FontSize = 13; })
                         .VAlign(VerticalAlignment.Center)

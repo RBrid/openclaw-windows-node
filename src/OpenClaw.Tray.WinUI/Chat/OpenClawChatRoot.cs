@@ -1,5 +1,6 @@
-using ChatSample.Chat.Model;
-using ChatSample.Chat.UI;
+using OpenClaw.Chat;
+using OpenClaw.Chat;
+using OpenClawTray.Helpers;
 using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
 using Microsoft.UI.Xaml;
@@ -54,7 +55,7 @@ public sealed class OpenClawChatRoot : Component
             return Border(
                 VStack(8,
                     ProgressRing().Size(28, 28).HAlign(HorizontalAlignment.Center),
-                    Caption("Connecting to gateway…").Foreground(SecondaryText).HAlign(HorizontalAlignment.Center)
+                    Caption(LocalizationHelper.GetString("Chat_Root_ConnectingToGateway")).Foreground(SecondaryText).HAlign(HorizontalAlignment.Center)
                 ).VAlign(VerticalAlignment.Center).HAlign(HorizontalAlignment.Center)
             ).Background(LayerFill);
         }
@@ -162,8 +163,8 @@ public sealed class OpenClawChatRoot : Component
     private static Element PlaceholderEmptyState(string? connectionStatus)
     {
         var msg = connectionStatus is { } s && s.StartsWith("Connected", StringComparison.OrdinalIgnoreCase)
-            ? "Select a session from the sidebar to start chatting."
-            : (connectionStatus ?? "Connecting…");
+            ? LocalizationHelper.GetString("Chat_Root_EmptyState_SelectSession")
+            : (connectionStatus ?? LocalizationHelper.GetString("Chat_Composer_Placeholder_Connecting"));
         return Border(
             VStack(8,
                 TextBlock("💬").FontSize(48).HAlign(HorizontalAlignment.Center),

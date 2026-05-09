@@ -7,9 +7,12 @@
 - License: MIT (see [`LICENSE`](LICENSE))
 
 This product includes a vendored snapshot of `microsoft/microsoft-ui-reactor`
-(the `Reactor`, `Reactor.Analyzers`, `Reactor.Localization.Generator` projects)
-and the `Chat.Model` / `Chat.UI` projects from its `samples/apps/chat`
-sample. Used under the terms of the MIT license.
+(the `Reactor`, `Reactor.Analyzers`, `Reactor.Localization.Generator` projects).
+Used under the terms of the MIT license.
+
+The `OpenClaw.Chat.Model` and `OpenClaw.Chat.UI` projects under `src/` were
+originally derived from the upstream `samples/apps/chat/` projects and have
+since been adopted into our own source tree under the same MIT terms.
 
 The MIT license text accompanying the upstream sources is preserved verbatim
 at `external/reactor/LICENSE`.

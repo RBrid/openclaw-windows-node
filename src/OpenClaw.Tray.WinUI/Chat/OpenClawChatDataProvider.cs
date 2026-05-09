@@ -1,8 +1,22 @@
-using ChatSample.Chat.Model;
+using OpenClaw.Chat;
 using OpenClaw.Shared;
+#if !OPENCLAW_TRAY_TESTS
+using OpenClawTray.Helpers;
+#endif
 using OpenClawTray.Services;
 
 namespace OpenClawTray.Chat;
+
+#if OPENCLAW_TRAY_TESTS
+// Shim for the test-only compilation. The real LocalizationHelper lives in
+// OpenClaw.Tray.WinUI and depends on Microsoft.Windows.ApplicationModel.Resources
+// which isn't available to the test project. Returning the resource key keeps
+// the notification text identifiable in tests without pulling in WinAppSDK.
+internal static class LocalizationHelper
+{
+    public static string GetString(string resourceKey) => resourceKey;
+}
+#endif
 
 /// <summary>
 /// Adapts <see cref="IChatGatewayBridge"/> (which wraps a live
@@ -166,7 +180,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             ApplyEventAndPublish(threadId, new ChatErrorEvent($"Send failed: {ex.Message}"));
             ApplyEventAndPublish(threadId, new ChatTurnEndEvent());
             RaiseNotification(new ChatProviderNotification(
-                ChatProviderNotificationKind.Error, threadId, "Send failed", ex.Message));
+                ChatProviderNotificationKind.Error, threadId, LocalizationHelper.GetString("Chat_Notification_SendFailed"), ex.Message));
             throw;
         }
     }
@@ -192,7 +206,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
             catch (Exception ex)
             {
                 RaiseNotification(new ChatProviderNotification(
-                    ChatProviderNotificationKind.Error, threadId, "Abort failed", ex.Message));
+                    ChatProviderNotificationKind.Error, threadId, LocalizationHelper.GetString("Chat_Notification_AbortFailed"), ex.Message));
             }
         }
 
@@ -429,7 +443,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         catch (Exception ex)
         {
             RaiseNotification(new ChatProviderNotification(
-                ChatProviderNotificationKind.Error, threadId, "Failed to load history", ex.Message));
+                ChatProviderNotificationKind.Error, threadId, LocalizationHelper.GetString("Chat_Notification_LoadHistoryFailed"), ex.Message));
         }
         finally
         {
@@ -616,7 +630,7 @@ public sealed class OpenClawChatDataProvider : IChatDataProvider
         {
             ApplyEventAndPublish(threadId, new ChatTurnEndEvent());
             RaiseNotification(new ChatProviderNotification(
-                ChatProviderNotificationKind.TurnComplete, threadId, "Assistant replied"));
+                ChatProviderNotificationKind.TurnComplete, threadId, LocalizationHelper.GetString("Chat_Notification_AssistantReplied")));
         }
     }
 

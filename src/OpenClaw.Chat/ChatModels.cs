@@ -1,4 +1,4 @@
-namespace ChatSample.Chat.Model;
+namespace OpenClaw.Chat;
 
 public enum ChatThreadStatus
 {
