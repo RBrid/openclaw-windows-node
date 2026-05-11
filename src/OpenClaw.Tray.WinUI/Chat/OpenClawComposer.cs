@@ -208,13 +208,13 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
         // 5 icons (Send/Stop/Attach/Voice/More) honor ChatExplorationState
         // Show + Glyph overrides set from the explorations panel.
         var attachBtn = ChatExplorationState.AttachIconShow
-            ? IconButton(NonEmptyGlyph(ChatExplorationState.AttachIconGlyph, "\uE723"), "Attach", () => { })
+            ? IconButton(NonEmptyGlyph(ChatExplorationState.AttachIconGlyph, "\uE723"), LocalizationHelper.GetString("Chat_Composer_Tooltip_Attach"), () => { })
             : Empty();
         var voiceBtn  = ChatExplorationState.VoiceIconShow
-            ? IconButton(NonEmptyGlyph(ChatExplorationState.VoiceIconGlyph,  "\uE720"), "Voice",  () => { })
+            ? IconButton(NonEmptyGlyph(ChatExplorationState.VoiceIconGlyph,  "\uE720"), LocalizationHelper.GetString("Chat_Composer_Tooltip_Voice"),  () => { })
             : Empty();
         var moreBtn   = ChatExplorationState.MoreIconShow
-            ? IconButton(NonEmptyGlyph(ChatExplorationState.MoreIconGlyph,   "\uE712"), "More",   () => { })
+            ? IconButton(NonEmptyGlyph(ChatExplorationState.MoreIconGlyph,   "\uE712"), LocalizationHelper.GetString("Chat_Composer_Tooltip_More"),   () => { })
             : Empty();
 
         // Send button (filled accent blue with white glyph) or Stop button when turn active.
@@ -245,7 +245,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                 b.MinWidth = sendButtonSize + 4; b.MinHeight = sendButtonSize - 4;
                 b.CornerRadius = composerCornerRadius;
                 b.Background = OpenClaw.Chat.Res.Get("SystemFillColorCriticalBrush");
-            }).AutomationName("Stop");
+            }).AutomationName(LocalizationHelper.GetString("Chat_Composer_Tooltip_Stop"));
         }
         else if (!Props.TurnActive && ChatExplorationState.SendIconShow)
         {
@@ -297,7 +297,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                     r.Set("ButtonBorderBrushPressed",     new SolidColorBrush(Colors.Transparent));
                 }
             })
-            .AutomationName("Send");
+            .AutomationName(LocalizationHelper.GetString("Chat_Composer_Tooltip_Send"));
         }
         else
         {

@@ -401,7 +401,13 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         var assistantAvatarFg   = themeBrush("TextFillColorSecondaryBrush");
         var userAvatarBg        = ChatVisualResolver.AccentBrush(themeBrush("AccentFillColorDefaultBrush"));
         var userAvatarFg        = themeBrush("TextOnAccentFillColorPrimaryBrush");
-        var chatStampFg         = themeBrush("TextFillColorTertiaryBrush");
+        // a11y: timestamps and "is thinking" caption sit directly on the
+        // window backdrop. On Mica/Acrylic the system tint is translucent,
+        // so Tertiary text can fall below WCAG AA. Bump to Secondary when
+        // the chat surface is transparent over a host backdrop.
+        var chatStampFg         = ChatExplorationState.BackdropMode == ChatBackdropMode.Solid
+            ? themeBrush("TextFillColorTertiaryBrush")
+            : themeBrush("TextFillColorSecondaryBrush");
         var chatTextFg          = themeBrush("TextFillColorPrimaryBrush");
         // Tool chips kept in a slightly cooler/dim shade so they read as
         // secondary content next to the assistant bubble.
@@ -438,7 +444,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     })
             ).Background(avatarPanelBg).Size(size, size).CornerRadius(radius)
              .WithBorder(avatarBorder, 1)
-             .Set(b => b.Padding = new Thickness(0));
+             .Set(b => b.Padding = new Thickness(0))
+             .AutomationName($"{assistantSender} avatar");
 
         // Helper to format a timestamp as the web does: "h:mm tt" in local time.
         static string FormatTime(DateTimeOffset? ts) =>
@@ -1023,7 +1030,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                         .Set(t => { t.FontStyle = global::Windows.UI.Text.FontStyle.Italic; t.FontSize = 13; })
                         .VAlign(VerticalAlignment.Center)
                 ) with { ColumnGap = 8 })
-            ).Margin(12, 4, 60, 4);
+            ).Margin(12, 4, 60, 4)
+             .LiveRegion(Microsoft.UI.Xaml.Automation.Peers.AutomationLiveSetting.Polite);
         }
 
         return Grid([GridSize.Star()], [GridSize.Star()],

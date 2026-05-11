@@ -82,6 +82,23 @@ public sealed partial class ChatWindow : WindowEx
         // Hide instead of close — preserves Reactor state for instant reopen
         Closed += OnWindowClosing;
 
+        // a11y: Esc to hide the popup + try to focus composer on first show.
+        // KeyboardAccelerator on the root content gets first-class keyboard
+        // handling without needing a focus host.
+        if (this.Content is FrameworkElement contentRoot)
+        {
+            var escAccel = new Microsoft.UI.Xaml.Input.KeyboardAccelerator
+            {
+                Key = global::Windows.System.VirtualKey.Escape,
+            };
+            escAccel.Invoked += (_, args) =>
+            {
+                args.Handled = true;
+                this.Hide();
+            };
+            contentRoot.KeyboardAccelerators.Add(escAccel);
+        }
+
         // Subscribe to global SettingsChanged so the surface swaps when the
         // user toggles "Use standard Gateway Chat interface" while the
         // pre-warmed window is alive.
@@ -361,6 +378,15 @@ public sealed partial class ChatWindow : WindowEx
                 _backdropAppliedOnce = true;
                 ApplySystemBackdrop();
             }
+
+            // a11y: place keyboard focus on the composer text box so the user
+            // can start typing immediately. Defer to next dispatcher pass so
+            // Reactor has finished mounting the composer.
+            DispatcherQueue?.TryEnqueue(() =>
+            {
+                if (this.Content is FrameworkElement root && FindFirstFocusableTextBox(root) is { } tb)
+                    tb.Focus(FocusState.Programmatic);
+            });
             return;
         }
 
@@ -368,6 +394,19 @@ public sealed partial class ChatWindow : WindowEx
         // preview backdrop/composer changes side-by-side.
         if (ChatWindowPinState.IsPinned) return;
         this.Hide();
+    }
+
+    private static Microsoft.UI.Xaml.Controls.TextBox? FindFirstFocusableTextBox(DependencyObject root)
+    {
+        if (root is Microsoft.UI.Xaml.Controls.TextBox tb && tb.IsEnabled && tb.Visibility == Visibility.Visible)
+            return tb;
+        var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (FindFirstFocusableTextBox(child) is { } found) return found;
+        }
+        return null;
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e)

@@ -31,17 +31,19 @@
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                <Button Click="OnPopout"
+                <Button x:Name="PopoutButton" Click="OnPopout"
+                        AutomationProperties.Name="Open in Companion app"
                         Width="28" Height="28" Padding="0" Background="Transparent" BorderThickness="0">
                     <ToolTipService.ToolTip>
-                        <ToolTip Content="Open in Companion app"/>
+                        <ToolTip x:Uid="ChatWindowOpenInBrowserToolTip" Content="Open in Companion app"/>
                     </ToolTipService.ToolTip>
                     <FontIcon Glyph="&#xE8A7;" FontSize="14"/>
                 </Button>
-                <Button Click="OnCloseClick"
+                <Button x:Name="CloseButton" Click="OnCloseClick"
+                        AutomationProperties.Name="Close"
                         Width="28" Height="28" Padding="0" Background="Transparent" BorderThickness="0">
                     <ToolTipService.ToolTip>
-                        <ToolTip Content="Close"/>
+                        <ToolTip x:Uid="ChatWindowCloseToolTip" Content="Close"/>
                     </ToolTipService.ToolTip>
                     <FontIcon Glyph="&#xE8BB;" FontSize="11"/>
                 </Button>

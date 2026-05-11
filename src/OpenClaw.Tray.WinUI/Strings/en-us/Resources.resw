@@ -2407,7 +2407,7 @@ On your gateway host (Mac/Linux), run:
     <value>📊 Usage &amp; Cost</value>
   </data>
   <data name="ChatWindowOpenInBrowserToolTip.Content" xml:space="preserve">
-    <value>Open in Browser</value>
+    <value>Open in Companion app</value>
   </data>
   <data name="ChatWindowCloseToolTip.Content" xml:space="preserve">
     <value>Close</value>
