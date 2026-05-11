@@ -395,7 +395,7 @@ public class OpenClawChatDataProviderTests
     }
 
     [Fact]
-    public async Task AgentEvent_AssistantContent_AppendsFinalAssistantEntry()
+    public async Task AgentEvent_AssistantContent_IsIgnoredBecauseChatMessageCarriesFinalText()
     {
         var (bridge, provider, snapshots, _) = CreateProvider(new[] { MainSession() });
         await provider.LoadAsync();
@@ -404,11 +404,7 @@ public class OpenClawChatDataProviderTests
         bridge.RaiseAgent(MakeAgentEvent("assistant",
             """{"content":"Final answer."}"""));
 
-        var timeline = snapshots[^1].Timelines["main"];
-        var entry = Assert.Single(timeline.Entries);
-        Assert.Equal(ChatTimelineItemKind.Assistant, entry.Kind);
-        Assert.Equal("Final answer.", entry.Text);
-        Assert.False(entry.IsStreaming);
+        Assert.Empty(snapshots);
     }
 
     [Fact]

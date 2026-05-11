@@ -2822,6 +2822,15 @@
   <data name="Chat_Composer_AssistantWorking" xml:space="preserve">
     <value>助手正在工作…</value>
   </data>
+  <data name="Chat_Assistant_Action_Copy" xml:space="preserve">
+    <value>复制消息</value>
+  </data>
+  <data name="Chat_Assistant_Action_ReadAloud" xml:space="preserve">
+    <value>朗读</value>
+  </data>
+  <data name="Chat_User_Action_Delete" xml:space="preserve">
+    <value>删除消息</value>
+  </data>
   <data name="Chat_Permission_Allow" xml:space="preserve">
     <value>允许</value>
   </data>
