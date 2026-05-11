@@ -195,6 +195,22 @@ public class ChatExplorationsPanel : Component
                 b => ChatExplorationState.SendButtonBrushOverride = b)
         );
 
+        // ── G. Preview state ─────────────────────────────────────────
+        // Lets designers preview each chat lifecycle state (loading,
+        // empty/zero, empty thread, thinking indicator, pending
+        // permission) without having to reproduce the real backend
+        // conditions. Live = no override.
+        var previewStateSection = Section("G. Preview state",
+            EnumCombo("Force chat state", ChatExplorationState.PreviewState,
+                v => ChatExplorationState.PreviewState = v,
+                ChatPreviewState.Live,
+                ChatPreviewState.Loading,
+                ChatPreviewState.EmptyZero,
+                ChatPreviewState.EmptyThread,
+                ChatPreviewState.Thinking,
+                ChatPreviewState.PendingPermission)
+        );
+
         var resetBtn = Button("Reset all", () =>
         {
             ChatVariationPresets.Apply(ChatVariation.Calm);
@@ -202,6 +218,7 @@ public class ChatExplorationsPanel : Component
             ChatExplorationState.UserBubbleBrushOverride = null;
             ChatExplorationState.AssistantBubbleBrushOverride = null;
             ChatExplorationState.SendButtonBrushOverride = null;
+            ChatExplorationState.PreviewState = ChatPreviewState.Live;
         });
 
         var pinBtn = Button(
@@ -230,6 +247,7 @@ public class ChatExplorationsPanel : Component
             avatarSection,
             composerSection, iconsSection,
             brushSection,
+            previewStateSection,
             (FlexRow(resetBtn, pinBtn) with { ColumnGap = 8 })
         ).Padding(16, 16, 16, 16);
 

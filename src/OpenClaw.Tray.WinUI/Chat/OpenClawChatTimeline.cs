@@ -1,6 +1,9 @@
 using OpenClaw.Chat;
 using OpenClaw.Chat;
 using OpenClawTray.Helpers;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Reactor;
 using Microsoft.UI.Reactor.Core;
@@ -292,6 +295,36 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // fine for the entry counts we deal with (typically <100 visible).
         var hoveredEntries = UseState<HashSet<string>>(new HashSet<string>(), threadSafe: true);
 
+        // Acknowledged actions — set of "entryId|actionKey" strings briefly
+        // marked after a click so the icon can swap to a checkmark for ~1.2s
+        // before reverting. Gives the user immediate "done" feedback for
+        // Copy / Read aloud / Delete without a toast.
+        // UseReducer (not UseState) so the updater always sees the LIVE
+        // hook value — UseState's `.Value` is a render-time snapshot, so
+        // a delayed continuation that reads it later sees a stale set and
+        // bails out, leaving the ack glyph stuck.
+        var (ackedActionsValue, ackUpdate) = UseReducer<HashSet<string>>(new HashSet<string>(), threadSafe: true);
+        async void AckAction(string entryId, string actionKey)
+        {
+            var key = entryId + "|" + actionKey;
+            ackUpdate(prev =>
+            {
+                if (prev.Contains(key)) return prev;
+                return new HashSet<string>(prev) { key };
+            });
+            var dq = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+            await Task.Delay(700);
+            void Clear() => ackUpdate(prev =>
+            {
+                if (!prev.Contains(key)) return prev;
+                var nxt = new HashSet<string>(prev);
+                nxt.Remove(key);
+                return nxt;
+            });
+            if (dq is null) Clear();
+            else dq.TryEnqueue(Clear);
+        }
+
         hasMoreHistoryRef.Current = Props.HasMoreHistory;
         loadMoreHistoryRef.Current = Props.OnLoadMoreHistory;
 
@@ -490,18 +523,24 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // Hover-revealed action icon (copy / read aloud / trash). Opacity 0
         // and not hit-testable until the entry is hovered, then fades in
         // and becomes clickable. Soft pill radius + Light weight glyph so
-        // it feels friendlier than the standard MDL2 button look.
-        Element HoverIcon(string entryId, string glyph, string tip, Action onClick)
+        // it feels friendlier than the standard MDL2 button look. When the
+        // matching action is acknowledged (briefly after click) the glyph
+        // swaps to a checkmark for instant visual feedback.
+        Element HoverIcon(string entryId, string actionKey, string glyph, string ackGlyph,
+            string tip, Action onClick)
         {
             var visible = hoveredEntries.Value.Contains(entryId);
+            var acked = ackedActionsValue.Contains(entryId + "|" + actionKey);
+            var shownGlyph = acked ? ackGlyph : glyph;
+            var shownColor = acked ? themeBrush("SystemFillColorSuccessBrush") : chatStampFg;
             return Button(
-                TextBlock(glyph)
+                TextBlock(shownGlyph)
                     .Set(t =>
                     {
                         t.FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
                         t.FontSize = 14;
                         t.FontWeight = Microsoft.UI.Text.FontWeights.Light;
-                        t.Foreground = chatStampFg;
+                        t.Foreground = shownColor;
                     }),
                 onClick
             ).Set(b =>
@@ -509,6 +548,8 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 b.Padding = new Thickness(7, 5, 7, 5);
                 b.MinWidth = 30; b.MinHeight = 26;
                 b.CornerRadius = new CornerRadius(13);
+                // Hide together with hover — once the pointer leaves the
+                // bubble, the icon (whether ack'd or not) goes away too.
                 b.Opacity = visible ? 1.0 : 0.0;
                 b.IsHitTestVisible = visible;
             })
@@ -542,10 +583,22 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 .OnPointerExited((_, _) =>
                 {
                     var current = hoveredEntries.Value;
-                    if (!current.Contains(entryId)) return;
-                    var next = new HashSet<string>(current);
-                    next.Remove(entryId);
-                    hoveredEntries.Set(next);
+                    if (current.Contains(entryId))
+                    {
+                        var next = new HashSet<string>(current);
+                        next.Remove(entryId);
+                        hoveredEntries.Set(next);
+                    }
+                    // Drop any pending ack glyph for this entry so the next
+                    // hover starts fresh with the original copy/speak/trash
+                    // icon instead of a stale checkmark.
+                    var prefix = entryId + "|";
+                    ackUpdate(prev =>
+                    {
+                        if (!prev.Any(k => k.StartsWith(prefix, StringComparison.Ordinal)))
+                            return prev;
+                        return new HashSet<string>(prev.Where(k => !k.StartsWith(prefix, StringComparison.Ordinal)));
+                    });
                 });
         }
 
@@ -642,12 +695,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             if (showCtxPct && contextPct    is int pct)   AddPill($"{pct}% ctx");
             if (showModel) AddPill(model ?? "");
 
-            parts.Add(HoverIcon(entryId, "\uE8C8",
+            parts.Add(HoverIcon(entryId, "copy", "\uE8C8", "\uE73E",
                 LocalizationHelper.GetString("Chat_Assistant_Action_Copy"),
-                () => CopyToClipboard(entryText)).VAlign(VerticalAlignment.Center));
-            parts.Add(HoverIcon(entryId, "\uE767",
+                () => { CopyToClipboard(entryText); AckAction(entryId, "copy"); }).VAlign(VerticalAlignment.Center));
+            parts.Add(HoverIcon(entryId, "speak", "\uE767", "\uE73E",
                 LocalizationHelper.GetString("Chat_Assistant_Action_ReadAloud"),
-                () => ReadAloud(entryText)).VAlign(VerticalAlignment.Center));
+                () => { ReadAloud(entryText); AckAction(entryId, "speak"); }).VAlign(VerticalAlignment.Center));
 
             return (FlexRow(parts.ToArray()) with { ColumnGap = 8 })
                 .HAlign(HorizontalAlignment.Left);
@@ -664,12 +717,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             var showSender = ChatExplorationState.ShowSenderName;
             var parts = new List<Element>
             {
-                HoverIcon(entryId, "\uE8C8",
+                HoverIcon(entryId, "copy", "\uE8C8", "\uE73E",
                     LocalizationHelper.GetString("Chat_Assistant_Action_Copy"),
-                    () => CopyToClipboard(entryText)).VAlign(VerticalAlignment.Center),
-                HoverIcon(entryId, "\uE74D",
+                    () => { CopyToClipboard(entryText); AckAction(entryId, "copy"); }).VAlign(VerticalAlignment.Center),
+                HoverIcon(entryId, "delete", "\uE74D", "\uE73E",
                     LocalizationHelper.GetString("Chat_User_Action_Delete"),
-                    () => { /* TODO: wire to provider */ }).VAlign(VerticalAlignment.Center),
+                    () => { /* TODO: wire to provider */ AckAction(entryId, "delete"); }).VAlign(VerticalAlignment.Center),
             };
 
             if (showSender && !string.IsNullOrEmpty(sender))

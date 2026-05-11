@@ -63,10 +63,15 @@ public sealed class OpenClawChatRoot : Component
         }));
 
         var snapshot = snapshotState.Value;
-        if (snapshot is null)
+
+        // Preview override (G) — let the explorations panel force a specific
+        // lifecycle state without waiting for matching real backend conditions.
+        // `Loading` short-circuits ahead of the real snapshot==null branch so
+        // it stays previewable even after data has loaded.
+        var previewState = ChatExplorationState.PreviewState;
+
+        Element BuildLoadingElement()
         {
-            // Loading state — same backdrop logic as the timeline so acrylic /
-            // mica show through when the host paints a SystemBackdrop.
             var loadingBg = ChatExplorationState.BackdropMode == ChatBackdropMode.Solid
                 ? (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources["LayerFillColorDefaultBrush"]
                 : (Microsoft.UI.Xaml.Media.Brush)new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
@@ -76,6 +81,14 @@ public sealed class OpenClawChatRoot : Component
                     Caption(LocalizationHelper.GetString("Chat_Root_ConnectingToGateway")).Foreground(SecondaryText).HAlign(HorizontalAlignment.Center)
                 ).VAlign(VerticalAlignment.Center).HAlign(HorizontalAlignment.Center)
             ).Background(loadingBg);
+        }
+
+        if (previewState == ChatPreviewState.Loading)
+            return BuildLoadingElement();
+
+        if (snapshot is null)
+        {
+            return BuildLoadingElement();
         }
 
         var selectedId = selectedIdState.Value ?? snapshot.DefaultThreadId;
@@ -127,6 +140,50 @@ public sealed class OpenClawChatRoot : Component
             && (timeline.Entries.Count == 0
                 || timeline.Entries[timeline.Entries.Count - 1].Kind != ChatTimelineItemKind.Assistant);
 
+        // Apply preview-state overrides for the four data-dependent states.
+        // These mutate locals only — real provider data on disk is untouched.
+        var pendingPermissionOverride = timeline.PendingPermission;
+        var turnActiveOverride = timeline.TurnActive;
+        switch (previewState)
+        {
+            case ChatPreviewState.EmptyZero:
+                selectedThread = null;
+                break;
+
+            case ChatPreviewState.EmptyThread:
+                selectedThread ??= SynthesizePreviewThread(snapshot);
+                entries = Array.Empty<ChatTimelineItem>();
+                showThinking = false;
+                pendingPermissionOverride = null;
+                turnActiveOverride = false;
+                break;
+
+            case ChatPreviewState.Thinking:
+                selectedThread ??= SynthesizePreviewThread(snapshot);
+                if (entries.Count == 0
+                    || entries[entries.Count - 1].Kind == ChatTimelineItemKind.Assistant)
+                {
+                    entries = new[]
+                    {
+                        new ChatTimelineItem("preview-u1", ChatTimelineItemKind.User,
+                            "What's the weather like in Seattle today?")
+                    };
+                }
+                showThinking = true;
+                turnActiveOverride = true;
+                pendingPermissionOverride = null;
+                break;
+
+            case ChatPreviewState.PendingPermission:
+                selectedThread ??= SynthesizePreviewThread(snapshot);
+                pendingPermissionOverride = new ChatPermissionRequest(
+                    RequestId: "preview-perm",
+                    PermissionKind: "execute",
+                    ToolName: "shell",
+                    Detail: "Run `git status` in the current repo.");
+                break;
+        }
+
         Element body = selectedThread is null
             ? PlaceholderEmptyState(connectedRaw)
             : Component<OpenClawChatTimeline, OpenClawChatTimelineProps>(new(
@@ -152,8 +209,8 @@ public sealed class OpenClawChatRoot : Component
         Element composer = selectedThread is not null
             ? Component<OpenClawComposer, OpenClawComposerProps>(new(
                 ConnectionState: connState,
-                TurnActive: timeline.TurnActive,
-                PendingPermission: timeline.PendingPermission,
+                TurnActive: turnActiveOverride,
+                PendingPermission: pendingPermissionOverride,
                 ChannelLabel: selectedThread.Title ?? "main",
                 AvailableChannels: channelTitles,
                 AvailableModels: snapshot.AvailableModels,
@@ -179,6 +236,19 @@ public sealed class OpenClawChatRoot : Component
             body.Grid(row: 2, column: 0),
             composer.Grid(row: 3, column: 0)
         );
+    }
+
+    private static ChatThread SynthesizePreviewThread(ChatDataSnapshot snapshot)
+    {
+        return new ChatThread
+        {
+            Id = "preview-thread",
+            Title = "Preview thread",
+            Status = ChatThreadStatus.Running,
+            Model = snapshot.AvailableModels is { Length: > 0 } m ? m[0] : null,
+            CreatedAt = DateTimeOffset.Now.AddMinutes(-1),
+            UpdatedAt = DateTimeOffset.Now,
+        };
     }
 
     private static Element PlaceholderEmptyState(string? connectionStatus)

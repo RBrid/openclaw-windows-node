@@ -46,6 +46,28 @@ public enum ChatAvatarMode
     None,
 }
 
+/// <summary>
+/// Forces the chat surface into a specific lifecycle state for preview purposes.
+/// <c>Live</c> = no override (use real provider data). The other values render
+/// a synthesized version of each visual state so designers can compare them
+/// without waiting for real backend conditions.
+/// </summary>
+public enum ChatPreviewState
+{
+    /// <summary>No override — render whatever the data provider says.</summary>
+    Live,
+    /// <summary>Force the "Connecting to gateway…" ProgressRing screen.</summary>
+    Loading,
+    /// <summary>Force the 💬 "Select a session" placeholder (no thread selected).</summary>
+    EmptyZero,
+    /// <summary>Thread exists but has zero messages.</summary>
+    EmptyThread,
+    /// <summary>Timeline + inline "thinking" indicator (turn started, no assistant delta yet).</summary>
+    Thinking,
+    /// <summary>Composer shows the tool-permission banner with Allow/Deny.</summary>
+    PendingPermission,
+}
+
 public enum ChatComposerLayout
 {
     /// <summary>Three rows: dropdowns / textbox / actions. Mirrors production OpenClawComposer.</summary>
@@ -73,6 +95,7 @@ public static class ChatExplorationState
 {
     // Defaults mirror v2 PropertyMetadata.
 
+    private static ChatPreviewState _previewState = ChatPreviewState.Live;
     private static ChatVariation _variation = ChatVariation.Calm;
     private static ChatBackdropMode _backdropMode = ChatBackdropMode.Mica;
     private static ChatPreviewTheme _previewTheme = ChatPreviewTheme.System;
@@ -119,6 +142,19 @@ public static class ChatExplorationState
     private static bool   _moreIconShow    = true;
     private static string _stopIconGlyph   = "\uE71A";
     private static bool   _stopIconShow    = true;
+
+    // ---- Preview state override (G) ----
+
+    /// <summary>
+    /// When set to anything other than <see cref="ChatPreviewState.Live"/>,
+    /// <see cref="OpenClawChatRoot"/> bypasses the real provider data and
+    /// renders a synthesized version of the matching lifecycle state.
+    /// </summary>
+    public static ChatPreviewState PreviewState
+    {
+        get => _previewState;
+        set { if (_previewState != value) { _previewState = value; RaiseChanged(); } }
+    }
 
     // ---- Surface (A) ----
 
