@@ -8,6 +8,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using OpenClawTray.Chat.Explorations;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Media.Core;
+using Windows.Media.Playback;
+using Windows.Media.SpeechSynthesis;
 using Windows.UI;
 using static Microsoft.UI.Reactor.Factories;
 using static Microsoft.UI.Reactor.Core.Theme;
@@ -61,6 +65,14 @@ public record OpenClawChatTimelineProps(
 public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 {
     const double FollowThreshold = 60;
+
+    // Shared TTS resources for "Read aloud" hover action — singletons so
+    // clicking on a different message cancels the previous utterance.
+    static class ChatTtsPlayer
+    {
+        public static SpeechSynthesizer? Synth;
+        public static MediaPlayer? Player;
+    }
 
     // SECURITY (chat-rubber-duck HIGH 1 / MEDIUM 3): chat-bubble Markdown is
     // rendered with a hardened options object that:
@@ -460,8 +472,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 .Set(t => t.FontSize = 11)
                 .HAlign(align);
 
-        // Hover-revealed action icon (trash / speak). Hidden (Opacity 0) by
-        // default; shown when the entry id is in hoveredEntries.
+        // Hover-revealed action icon (copy / read aloud / trash). Opacity 0
+        // and not hit-testable until the entry is hovered, then fades in
+        // and becomes clickable. Soft pill radius + Light weight glyph so
+        // it feels friendlier than the standard MDL2 button look.
         Element HoverIcon(string entryId, string glyph, string tip, Action onClick)
         {
             var visible = hoveredEntries.Value.Contains(entryId);
@@ -469,15 +483,17 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 TextBlock(glyph)
                     .Set(t =>
                     {
-                        t.FontFamily = new FontFamily("Segoe MDL2 Assets, Segoe Fluent Icons");
-                        t.FontSize = 12;
+                        t.FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
+                        t.FontSize = 14;
+                        t.FontWeight = Microsoft.UI.Text.FontWeights.Light;
+                        t.Foreground = chatStampFg;
                     }),
                 onClick
             ).Set(b =>
             {
-                b.Padding = new Thickness(6, 4, 6, 4);
-                b.MinWidth = 28; b.MinHeight = 24;
-                b.CornerRadius = new CornerRadius(4);
+                b.Padding = new Thickness(7, 5, 7, 5);
+                b.MinWidth = 30; b.MinHeight = 26;
+                b.CornerRadius = new CornerRadius(13);
                 b.Opacity = visible ? 1.0 : 0.0;
                 b.IsHitTestVisible = visible;
             })
@@ -492,7 +508,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         }
 
         // Wrap a row with hover handlers that flip the entry id in
-        // hoveredEntries on PointerEntered/Exited.
+        // hoveredEntries on PointerEntered/Exited. Callers should wrap the
+        // row in a Border with a transparent background so the WHOLE
+        // bounding box (including the gap between bubble and footer) is
+        // hit-testable — otherwise moving the pointer down to a
+        // hover-revealed action button briefly exits the hover area and
+        // hides the icon before the click lands.
         T WithHoverHandlers<T>(T el, string entryId) where T : Element
         {
             return el
@@ -522,9 +543,58 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         static string FormatTokenCount(int n) =>
             n >= 1000 ? $"{n / 1000.0:0.#}k" : n.ToString();
 
+        // Copy assistant message text to the system clipboard. Strips a
+        // light amount of markdown noise (fenced code backticks) so the
+        // clipboard payload reads naturally when pasted into prose.
+        static void CopyToClipboard(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            try
+            {
+                var data = new DataPackage();
+                data.SetText(text);
+                Clipboard.SetContent(data);
+                Clipboard.Flush();
+            }
+            catch { /* clipboard contention — silently ignore */ }
+        }
+
+        // Speak assistant text via Windows TTS. One shared MediaPlayer so
+        // a second click cancels the previous utterance instead of stacking
+        // overlapping voices.
+        static async void ReadAloud(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            try
+            {
+                ChatTtsPlayer.Synth ??= new SpeechSynthesizer();
+                ChatTtsPlayer.Player ??= new MediaPlayer { AutoPlay = true };
+                ChatTtsPlayer.Player.Pause();
+                var stream = await ChatTtsPlayer.Synth.SynthesizeTextToStreamAsync(StripMarkdownForSpeech(text));
+                ChatTtsPlayer.Player.Source = MediaSource.CreateFromStream(stream, stream.ContentType);
+                ChatTtsPlayer.Player.Play();
+            }
+            catch { /* TTS unavailable — silently no-op */ }
+        }
+
+        // Very light markdown stripper so the synthesizer doesn't read
+        // backticks, asterisks, link brackets, etc. Markdown rendering is
+        // already done visually; this only cleans the spoken transcript.
+        static string StripMarkdownForSpeech(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            var s = System.Text.RegularExpressions.Regex.Replace(text, @"```[\s\S]*?```", " code block ");
+            s = System.Text.RegularExpressions.Regex.Replace(s, @"`([^`]+)`", "$1");
+            s = System.Text.RegularExpressions.Regex.Replace(s, @"!\[[^\]]*\]\([^)]*\)", " image ");
+            s = System.Text.RegularExpressions.Regex.Replace(s, @"\[([^\]]+)\]\([^)]*\)", "$1");
+            s = System.Text.RegularExpressions.Regex.Replace(s, @"[*_#>]+", " ");
+            return s;
+        }
+
         Element BuildAssistantFooter(string sender, string time, string? model,
             int? inputTokens, int? outputTokens, int? responseTokens, int? contextPct,
-            Brush stampFg)
+            Brush stampFg,
+            string entryId, string entryText)
         {
             // Honor per-field toggles from ChatExplorationState.
             var showSender   = ChatExplorationState.ShowSenderName;
@@ -541,6 +611,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     .VAlign(VerticalAlignment.Center));
             }
 
+            // Hover actions — Copy + Read aloud. Placed at the END of the
+            // footer so the timestamp/sender stay anchored on the left and
+            // the empty space (when not hovered) trails off harmlessly to
+            // the right instead of leaving an awkward gap before the time.
             if (showSender && !string.IsNullOrEmpty(sender))
                 parts.Add(Caption(sender).Foreground(stampFg)
                     .Set(t => { t.FontSize = 11; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; })
@@ -553,8 +627,48 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             if (showCtxPct && contextPct    is int pct)   AddPill($"{pct}% ctx");
             if (showModel) AddPill(model ?? "");
 
-            return (FlexRow(parts.ToArray()) with { ColumnGap = 12 })
+            parts.Add(HoverIcon(entryId, "\uE8C8",
+                LocalizationHelper.GetString("Chat_Assistant_Action_Copy"),
+                () => CopyToClipboard(entryText)).VAlign(VerticalAlignment.Center));
+            parts.Add(HoverIcon(entryId, "\uE767",
+                LocalizationHelper.GetString("Chat_Assistant_Action_ReadAloud"),
+                () => ReadAloud(entryText)).VAlign(VerticalAlignment.Center));
+
+            return (FlexRow(parts.ToArray()) with { ColumnGap = 8 })
                 .HAlign(HorizontalAlignment.Left);
+        }
+
+        // User-bubble footer mirrors the assistant footer UX so the same
+        // hover affordance shows up on both sides. Order is reversed for
+        // the user side: hover actions sit on the LEFT and the timestamp
+        // anchors the FAR RIGHT (closest to the bubble corner) — matches
+        // the user's reading direction when the bubble is right-aligned.
+        Element BuildUserFooter(string sender, string time, Brush stampFg,
+            string entryId, string entryText)
+        {
+            var showSender = ChatExplorationState.ShowSenderName;
+            var parts = new List<Element>
+            {
+                HoverIcon(entryId, "\uE8C8",
+                    LocalizationHelper.GetString("Chat_Assistant_Action_Copy"),
+                    () => CopyToClipboard(entryText)).VAlign(VerticalAlignment.Center),
+                HoverIcon(entryId, "\uE74D",
+                    LocalizationHelper.GetString("Chat_User_Action_Delete"),
+                    () => { /* TODO: wire to provider */ }).VAlign(VerticalAlignment.Center),
+            };
+
+            if (showSender && !string.IsNullOrEmpty(sender))
+                parts.Add(Caption(sender).Foreground(stampFg)
+                    .Set(t => { t.FontSize = 11; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; })
+                    .VAlign(VerticalAlignment.Center));
+
+            if (!string.IsNullOrEmpty(time))
+                parts.Add(Caption(time).Foreground(stampFg)
+                    .Set(t => t.FontSize = 11)
+                    .VAlign(VerticalAlignment.Center));
+
+            return (FlexRow(parts.ToArray()) with { ColumnGap = 8 })
+                .HAlign(HorizontalAlignment.Right);
         }
 
         Element RenderUserEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
@@ -590,12 +704,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                    ? AvatarBox("🧑", userAvatarBg, userBubbleBdr, userAvatarFg).VAlign(VerticalAlignment.Center)
                    : Border(Empty()).Size(36, 36));
 
-            // Trash icon (delete user message) — visible only on hover.
-            var trashIcon = HoverIcon(entry.Id, "\uE74D", "Delete message", () => { /* TODO: wire to provider */ })
-                .VAlign(VerticalAlignment.Center);
-
             var bubbleRow = (FlexRow(
-                trashIcon,
                 bubble,
                 rightSlot
             ) with { ColumnGap = bubbleSideMargin }).HAlign(HorizontalAlignment.Right);
@@ -605,20 +714,19 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             {
                 var entryMeta = MetaFor(entry.Id);
                 var timeStr = FormatTime(entryMeta?.Timestamp);
-                var footerText = ChatVisualResolver.BuildFooterText(userSender, timeStr, model: null, tokens: null, contextPct: null);
-                if (!string.IsNullOrEmpty(footerText))
-                {
-                    var rightInset = showUserAvatar ? (36 + bubbleSideMargin) : 0;
-                    footer = FooterCaption(footerText, HorizontalAlignment.Right).Margin(0, 2, rightInset, 0);
-                }
+                var rightInset = showUserAvatar ? (36 + bubbleSideMargin) : 0;
+                footer = BuildUserFooter(userSender, timeStr, chatStampFg, entry.Id, entry.Text ?? "")
+                    .Margin(0, 2, rightInset, 0);
             }
 
             var topMargin = startsBurst ? 4.0 : 1.0;
             var bottomMargin = endsBurst ? 4.0 : 1.0;
             return WithHoverHandlers(
-                VStack(2, bubbleRow, footer)
-                    .HAlign(HorizontalAlignment.Stretch)
-                    .Margin(gutter, topMargin, 8, bottomMargin),
+                Border(
+                    VStack(2, bubbleRow, footer)
+                        .HAlign(HorizontalAlignment.Stretch)
+                ).Background(new SolidColorBrush(Colors.Transparent))
+                 .Margin(gutter, topMargin, 8, bottomMargin),
                 entry.Id);
         }
 
@@ -666,7 +774,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 footer = BuildAssistantFooter(assistantSender, timeStr, modelStr,
                     entryMeta?.InputTokens, entryMeta?.OutputTokens,
                     entryMeta?.ResponseTokens, entryMeta?.ContextPercent,
-                    chatStampFg);
+                    chatStampFg, entry.Id, entry.Text ?? "");
                 var leftInset = showAssistAvatar ? (36 + bubbleSideMargin) : 0;
                 footer = footer.Margin(leftInset, 2, 0, 0);
             }
@@ -674,10 +782,12 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             var topMargin = startsBurst ? 4.0 : 1.0;
             var bottomMargin = endsBurst ? 4.0 : 1.0;
             return WithHoverHandlers(
-                VStack(2, bubbleRow, footer)
-                    .HAlign(HorizontalAlignment.Stretch)
-                    .Margin(8, topMargin, gutter, bottomMargin)
-                    .AutomationName(entry.Text ?? ""),
+                Border(
+                    VStack(2, bubbleRow, footer)
+                        .HAlign(HorizontalAlignment.Stretch)
+                        .AutomationName(entry.Text ?? "")
+                ).Background(new SolidColorBrush(Colors.Transparent))
+                 .Margin(8, topMargin, gutter, bottomMargin),
                 entry.Id);
         }
 
