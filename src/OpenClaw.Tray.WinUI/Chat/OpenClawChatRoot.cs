@@ -191,13 +191,15 @@ public sealed class OpenClawChatRoot : Component
 
         Element body = selectedThread is null
             ? PlaceholderEmptyState(connectedRaw)
-            : Component<OpenClawChatTimeline, OpenClawChatTimelineProps>(new(
+            : entries.Count == 0 && !showThinking
+                ? PlaceholderEmptyThreadState(connState)
+                : Component<OpenClawChatTimeline, OpenClawChatTimelineProps>(new(
                 SessionId: selectedThread.Id,
                 Entries: entries,
                 HasMoreHistory: false,
                 OnLoadMoreHistory: null,
                 EntryMetadata: entryMeta,
-                UserSenderLabel: "OpenClaw Windows Tray (cli)",
+                UserSenderLabel: "OpenClaw Windows Tray",
                 AssistantSenderLabel: assistantSenderLabel,
                 DefaultModel: selectedThread.Model,
                 ShowThinkingIndicator: showThinking,
@@ -262,6 +264,21 @@ public sealed class OpenClawChatRoot : Component
         var msg = connectionStatus is { } s && s.StartsWith("Connected", StringComparison.OrdinalIgnoreCase)
             ? LocalizationHelper.GetString("Chat_Root_EmptyState_SelectSession")
             : (connectionStatus ?? LocalizationHelper.GetString("Chat_Composer_Placeholder_Connecting"));
+        return Border(
+            VStack(8,
+                TextBlock("💬").FontSize(48).HAlign(HorizontalAlignment.Center),
+                Caption(msg).Foreground(SecondaryText).HAlign(HorizontalAlignment.Center)
+            ).VAlign(VerticalAlignment.Center).HAlign(HorizontalAlignment.Center)
+        );
+    }
+
+    private static Element PlaceholderEmptyThreadState(string connectionState)
+    {
+        var isConnected = string.Equals(connectionState, "connected", StringComparison.Ordinal);
+        var msg = isConnected
+            ? "Start a new OpenClaw chat from the composer below."
+            : LocalizationHelper.GetString("Chat_Root_ConnectingToGateway");
+
         return Border(
             VStack(8,
                 TextBlock("💬").FontSize(48).HAlign(HorizontalAlignment.Center),

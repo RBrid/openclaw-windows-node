@@ -42,7 +42,7 @@ public record OpenClawChatTimelineProps(
     bool HasMoreHistory,
     Action? OnLoadMoreHistory,
     IReadOnlyDictionary<string, ChatEntryMetadata>? EntryMetadata = null,
-    string UserSenderLabel = "OpenClaw Windows Tray (cli)",
+    string UserSenderLabel = "OpenClaw Windows Tray",
     string AssistantSenderLabel = "Field",
     string? DefaultModel = null,
     bool ShowThinkingIndicator = false,

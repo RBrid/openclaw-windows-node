@@ -3,7 +3,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using OpenClaw.Shared;
-using OpenClaw.Shared.Capabilities;
 using OpenClawTray.Dialogs;
 using OpenClawTray.Helpers;
 using OpenClawTray.Services;
@@ -40,7 +39,7 @@ public partial class App : Application
     private TrayIcon? _trayIcon;
     private GatewayConnectionManager? _connectionManager;
     private GatewayRegistry? _gatewayRegistry;
-    private OpenClawTray.Chat.OpenClawChatDataProvider? _chatProvider;
+    private OpenClawTray.Chat.OpenClawChatCoordinator? _chatCoordinator;
     /// <summary>
     /// Cached reference to the most recently constructed local-setup engine. Used by
     /// <see cref="OnPairingStatusChanged"/> to suppress the "copy pairing command" toast
@@ -60,13 +59,7 @@ public partial class App : Application
     public GatewayConnectionManager? ConnectionManager => _connectionManager;
     internal SettingsManager Settings => _settings ?? throw new InvalidOperationException("Settings are not initialized.");
 
-    /// <summary>
-    /// Shared chat data provider that adapts the live gateway client into
-    /// the contract expected by the native Reactor chat surface (Hub Chat
-    /// tab and tray ChatWindow popup). Recreated on every gateway connect
-    /// and disposed on disconnect/shutdown.
-    /// </summary>
-    public OpenClawTray.Chat.OpenClawChatDataProvider? ChatProvider => _chatProvider;
+    public OpenClawTray.Chat.OpenClawChatDataProvider? ChatProvider => _chatCoordinator?.Provider;
 
     /// <summary>
     /// Raised after the tray-wide settings have been saved (either via the
@@ -224,7 +217,6 @@ public partial class App : Application
     
     // Node service (optional, enabled in settings)
     private NodeService? _nodeService;
-    private TextToSpeechService? _chatReadAloudTts;
     
     // Keep-alive window to anchor WinUI runtime (prevents GC/threading issues)
     private Window? _keepAliveWindow;
@@ -428,6 +420,13 @@ public partial class App : Application
         // Initialize settings before update check so skip selections can be remembered.
         _settings = new SettingsManager();
         _previousSettingsSnapshot = _settings.ToSettingsData();
+        _chatCoordinator = new OpenClawTray.Chat.OpenClawChatCoordinator(
+            _settings,
+            () => _nodeService,
+            new AppLogger(),
+            _dispatcherQueue is null
+                ? null
+                : OpenClawTray.Chat.ReactorChatHostExtensions.AsPost(_dispatcherQueue));
         DiagnosticsJsonlService.Configure(DataPath);
         DiagnosticsJsonlService.Write("app.start", new
         {
@@ -1953,12 +1952,7 @@ public partial class App : Application
             old.AgentFileContentUpdated -= OnAgentFileContentUpdated;
         }
 
-        if (_chatProvider is not null)
-        {
-            var oldProvider = _chatProvider;
-            _chatProvider = null;
-            _ = oldProvider.DisposeAsync().AsTask();
-        }
+        _chatCoordinator?.SetOperatorClient(null);
 
         // Subscribe to new client
         if (e.NewClient is { } client)
@@ -1992,12 +1986,7 @@ public partial class App : Application
             client.AgentFilesListUpdated += OnAgentFilesListUpdated;
             client.AgentFileContentUpdated += OnAgentFileContentUpdated;
 
-            var chatBridge = new OpenClawTray.Chat.GatewayClientChatBridge(client);
-            _chatProvider = new OpenClawTray.Chat.OpenClawChatDataProvider(
-                chatBridge,
-                post: _dispatcherQueue is null
-                    ? null
-                    : OpenClawTray.Chat.ReactorChatHostExtensions.AsPost(_dispatcherQueue));
+            _chatCoordinator?.SetOperatorClient(client);
         }
 
         _lastGatewaySelf = null;
@@ -2836,7 +2825,7 @@ public partial class App : Application
             // TTS: read response aloud whenever the toggle is on (any chat surface).
             if (_settings?.VoiceTtsEnabled == true)
             {
-                _ = SpeakResponseAsync(notification.Message);
+                _ = (_chatCoordinator?.SpeakResponseAsync(notification.Message) ?? Task.CompletedTask);
             }
         }
 
@@ -4494,60 +4483,8 @@ public partial class App : Application
             await voiceService.StopAsync();
     }
 
-    private int _ttsMuteCount;
-
-    public Task SpeakChatTextAsync(string text) => SpeakConfiguredTextAsync(text, muteVoiceCapture: false);
-
-    private Task SpeakResponseAsync(string text) => SpeakConfiguredTextAsync(text, muteVoiceCapture: true);
-
-    private async Task SpeakConfiguredTextAsync(string text, bool muteVoiceCapture)
-    {
-        var voiceService = _nodeService?.VoiceService;
-        var mutedVoiceCapture = false;
-        try
-        {
-            if (_settings == null) return;
-
-            if (muteVoiceCapture && voiceService != null)
-            {
-                // Increment mute counter — multiple concurrent TTS won't unmute prematurely
-                Interlocked.Increment(ref _ttsMuteCount);
-                mutedVoiceCapture = true;
-                voiceService.IsMutedForPlayback = true;
-            }
-
-            var speakText = text.Length > 500 ? text[..500] + "..." : text;
-
-            // Don't pass VoiceId here. The shared TextToSpeechService picks
-            // the right per-provider voice from settings (TtsPiperVoiceId,
-            // TtsWindowsVoiceId, TtsElevenLabsVoiceId). Cross-provider
-            // voice IDs would otherwise leak across providers.
-            var speakArgs = new OpenClaw.Shared.Capabilities.TtsSpeakArgs
-            {
-                Text = speakText,
-                Provider = _settings.TtsProvider ?? TtsCapability.PiperProvider,
-                Interrupt = true
-            };
-
-            var ttsService = _nodeService?.TextToSpeech
-                ?? (_chatReadAloudTts ??= new TextToSpeechService(new AppLogger(), _settings));
-            await ttsService.SpeakAsync(speakArgs);
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn($"TTS response playback failed: {ex.Message}");
-        }
-        finally
-        {
-            // Only unmute when all concurrent TTS operations have finished
-            if (mutedVoiceCapture && voiceService != null)
-            {
-                await Task.Delay(300);
-                if (Interlocked.Decrement(ref _ttsMuteCount) <= 0)
-                    voiceService.IsMutedForPlayback = false;
-            }
-        }
-    }
+    public Task SpeakChatTextAsync(string text) =>
+        _chatCoordinator?.SpeakChatTextAsync(text) ?? Task.CompletedTask;
 
     private static void SendDeepLinkToRunningInstance(string uri)
     {
@@ -4648,22 +4585,16 @@ public partial class App : Application
             _connectionManager?.Dispose();
         });
 
-        SafeShutdownStep("chat data provider", () =>
+        SafeShutdownStep("chat coordinator", () =>
         {
-            _chatProvider?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            _chatProvider = null;
+            _chatCoordinator?.Dispose();
+            _chatCoordinator = null;
         });
 
         SafeShutdownStep("node service", () =>
         {
             _nodeService?.Dispose();
             _nodeService = null;
-        });
-
-        SafeShutdownStep("chat read-aloud TTS", () =>
-        {
-            _chatReadAloudTts?.Dispose();
-            _chatReadAloudTts = null;
         });
 
         SafeShutdownStep("standalone voice service", () =>
