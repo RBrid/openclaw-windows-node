@@ -23,6 +23,7 @@
          expose via <Using> below. -->
     <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Chat\ChatModels.cs" Link="Chat\ChatModels.cs" />
     <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Chat\ChatTimelineReducer.cs" Link="Chat\ChatTimelineReducer.cs" />
+    <Compile Include="..\..\src\OpenClaw.Tray.WinUI\Chat\Native\ChatScrollController.cs" Link="Chat\Native\ChatScrollController.cs" />
     <Using Include="System.Text.Json.Nodes" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
     <PackageReference Include="Zeroconf" Version="3.6.11" />
