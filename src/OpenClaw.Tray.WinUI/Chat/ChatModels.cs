@@ -1,3 +1,7 @@
+// Moved from src/OpenClaw.Chat/ChatModels.cs as part of dropping the Reactor framework.
+// Namespace preserved as OpenClaw.Chat so existing call sites (using OpenClaw.Chat;) keep compiling.
+using System.Text.Json.Nodes;
+
 namespace OpenClaw.Chat;
 
 public enum ChatThreadStatus

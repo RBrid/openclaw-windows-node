@@ -1,3 +1,8 @@
+// Moved from src/OpenClaw.Chat/ChatUiHelpers.cs as part of dropping the Reactor framework.
+// Namespace preserved as OpenClaw.Chat so existing call sites (using OpenClaw.Chat;) keep compiling.
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+
 namespace OpenClaw.Chat;
 
 public static class Res

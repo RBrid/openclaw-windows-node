@@ -1,3 +1,9 @@
+// Moved from src/OpenClaw.Chat/SessionHeader.cs as part of dropping the OpenClaw.Chat project.
+// Still Reactor-based; will be replaced with a XAML UserControl in the upcoming native rewrite.
+using Microsoft.UI.Reactor;
+using Microsoft.UI.Reactor.Core;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using static Microsoft.UI.Reactor.Factories;
 using static Microsoft.UI.Reactor.Core.Theme;
 

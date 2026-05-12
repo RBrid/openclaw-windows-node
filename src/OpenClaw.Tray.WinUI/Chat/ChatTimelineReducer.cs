@@ -1,3 +1,6 @@
+// Moved from src/OpenClaw.Chat/ChatTimelineReducer.cs as part of dropping the Reactor framework.
+// Namespace preserved as OpenClaw.Chat so existing call sites (using OpenClaw.Chat;) keep compiling.
+
 namespace OpenClaw.Chat;
 
 public static class ChatTimelineReducer
