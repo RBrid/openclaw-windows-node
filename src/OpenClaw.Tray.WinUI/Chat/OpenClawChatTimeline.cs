@@ -65,7 +65,20 @@ public record OpenClawChatTimelineProps(
 /// </summary>
 public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
 {
-    const double FollowThreshold = 60;
+    // Tolerance (in pixels) for treating the scroll position as "at the bottom"
+    // — only when the user is within this distance of the bottom does auto-follow
+    // re-engage on a layout invalidation. Set tight (literal-bottom) so a small
+    // mouse-wheel scroll up immediately breaks the anchor and the next SizeChanged
+    // does NOT yank the user back to the bottom. Widening this introduces a
+    // snap-back bug whenever any layout invalidation (hover state change,
+    // streaming-token tick, thinking-dot timer) fires while the user is near
+    // but not at the bottom.
+    const double FollowAnchorThreshold = 4;
+
+    // Tolerance (in pixels) from the TOP of the timeline at which the
+    // load-more-history fetch is triggered. Wider than FollowAnchorThreshold
+    // because we want a slight prefetch as the user scrolls toward the top.
+    const double LoadMoreTopThreshold = 60;
 
     // SECURITY (chat-rubber-duck HIGH 1 / MEDIUM 3): chat-bubble Markdown is
     // rendered with a hardened options object that:
@@ -371,7 +384,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         {
             lastVerticalOffsetRef.Current = sv.VerticalOffset;
             lastScrollableHeightRef.Current = sv.ScrollableHeight;
-            isFollowingRef.Current = sv.ScrollableHeight - sv.VerticalOffset <= FollowThreshold;
+            isFollowingRef.Current = sv.ScrollableHeight - sv.VerticalOffset <= FollowAnchorThreshold;
             StoreSessionOffset(prevSessionIdRef.Current, sv.VerticalOffset);
         }
 
@@ -384,7 +397,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 sv.ChangeView(null, target, null, disableAnimation);
                 lastVerticalOffsetRef.Current = target;
                 lastScrollableHeightRef.Current = sv.ScrollableHeight;
-                isFollowingRef.Current = sv.ScrollableHeight - target <= FollowThreshold;
+                isFollowingRef.Current = sv.ScrollableHeight - target <= FollowAnchorThreshold;
                 StoreSessionOffset(sessionId, target);
 
                 if (suppressAutoFollow)
@@ -416,7 +429,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 sv.ChangeView(null, target, null, disableAnimation: true);
                 lastVerticalOffsetRef.Current = target;
                 lastScrollableHeightRef.Current = sv.ScrollableHeight;
-                isFollowingRef.Current = sv.ScrollableHeight - target <= FollowThreshold;
+                isFollowingRef.Current = sv.ScrollableHeight - target <= FollowAnchorThreshold;
                 StoreSessionOffset(sessionId, target);
                 sv.DispatcherQueue.TryEnqueue(() => suppressAutoFollowRef.Current = false);
             });
@@ -1438,7 +1451,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                         UpdateScrollMetrics(sv);
 
                         if (sv.ScrollableHeight > 0
-                            && sv.VerticalOffset <= FollowThreshold
+                            && sv.VerticalOffset <= LoadMoreTopThreshold
                             && hasMoreHistoryRef.Current
                             && loadMoreRequestedForCountRef.Current != prevEntryCountRef.Current)
                         {
