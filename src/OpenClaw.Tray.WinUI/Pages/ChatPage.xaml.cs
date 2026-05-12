@@ -1,7 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
-using OpenClaw.Chat;
 using OpenClaw.Shared;
 using OpenClawTray.Chat;
 using OpenClawTray.Helpers;
@@ -176,7 +175,7 @@ public sealed partial class ChatPage : Page
 
         PlaceholderPanel.Visibility = Visibility.Collapsed;
         ChatHost.Visibility = Visibility.Visible;
-        _reactorHost = ((Window)_hub!).MountReactorChat(
+        _reactorHost = ((Window)_hub!).MountChatView(
             ChatHost,
             provider,
             onReadAloud: readAloud);

@@ -1,4 +1,3 @@
-using OpenClaw.Chat;
 using OpenClawTray.Chat;
 using Xunit;
 

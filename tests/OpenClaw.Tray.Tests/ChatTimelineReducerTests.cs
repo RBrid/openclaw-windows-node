@@ -1,4 +1,6 @@
-using OpenClaw.Chat;
+
+using OpenClawTray.Chat;
+using Xunit;
 
 namespace OpenClaw.Tray.Tests;
 

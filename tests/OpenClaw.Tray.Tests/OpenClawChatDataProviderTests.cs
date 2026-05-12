@@ -1,4 +1,3 @@
-using OpenClaw.Chat;
 using OpenClaw.Shared;
 using OpenClawTray.Chat;
 using System.Text.Json;

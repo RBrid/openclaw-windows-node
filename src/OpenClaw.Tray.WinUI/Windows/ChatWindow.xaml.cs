@@ -1,4 +1,3 @@
-using OpenClaw.Chat;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
@@ -194,7 +193,7 @@ public sealed partial class ChatWindow : WindowEx
         LoadingRing.IsActive = false;
         LoadingRing.Visibility = Visibility.Collapsed;
         ErrorPanel.Visibility = Visibility.Collapsed;
-        TryMountReactorChat();
+        TryMountChat();
     }
 
     private void ShowWebViewSurface()
@@ -365,7 +364,7 @@ public sealed partial class ChatWindow : WindowEx
         WebView.CoreWebView2?.Navigate(_chatUrl);
     }
 
-    private void TryMountReactorChat()
+    private void TryMountChat()
     {
         var app = App.Current as App;
         var provider = app?.ChatProvider;
@@ -389,7 +388,7 @@ public sealed partial class ChatWindow : WindowEx
 
         PlaceholderPanel.Visibility = Visibility.Collapsed;
         ChatHost.Visibility = Visibility.Visible;
-        _reactorHost = ((Window)this).MountReactorChat(
+        _reactorHost = ((Window)this).MountChatView(
             ChatHost,
             provider,
             onReadAloud: readAloud);

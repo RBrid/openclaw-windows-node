@@ -1,4 +1,3 @@
-using OpenClaw.Chat;
 using OpenClaw.Shared;
 #if !OPENCLAW_TRAY_TESTS
 using OpenClawTray.Helpers;

@@ -45,8 +45,6 @@
   <ItemGroup>
     <ProjectReference Include="..\OpenClaw.Shared\OpenClaw.Shared.csproj" />
     <ProjectReference Include="..\OpenClawTray.FunctionalUI\OpenClawTray.FunctionalUI.csproj" />
-    <ProjectReference Include="..\..\external\reactor\src\Reactor\Reactor.csproj" />
-    <ProjectReference Include="..\OpenClaw.Chat\OpenClaw.Chat.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -56,6 +54,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.0.1" />
+    <PackageReference Include="CommunityToolkit.Labs.WinUI.Controls.MarkdownTextBlock" Version="0.1.251217-build.2433" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
     <PackageReference Include="WinUIEx" Version="2.9.0" />
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
