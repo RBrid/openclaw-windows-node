@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="OpenClawTray.Chat.Native.NativeChatComposer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Border
+        Background="{ThemeResource LayerFillColorDefaultBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="0,1,0,0"
+        Padding="12,8,12,12">
+        <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox
+                x:Name="InputBox"
+                Grid.Column="0"
+                MinHeight="36"
+                MaxHeight="160"
+                AcceptsReturn="True"
+                TextWrapping="Wrap"
+                VerticalAlignment="Center"
+                PlaceholderText="Message Assistant (Enter to send)"
+                AutomationProperties.Name="Chat message input"
+                KeyDown="OnInputKeyDown"
+                TextChanged="OnInputTextChanged" />
+
+            <Button
+                x:Name="SendButton"
+                Grid.Column="1"
+                Style="{ThemeResource AccentButtonStyle}"
+                MinWidth="64"
+                MinHeight="36"
+                IsEnabled="False"
+                Click="OnSendClick"
+                AutomationProperties.Name="Send message">
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <FontIcon
+                        x:Name="SendIcon"
+                        Glyph="&#xE724;"
+                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                        FontSize="14" />
+                    <TextBlock x:Name="SendLabel" Text="Send" />
+                </StackPanel>
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>

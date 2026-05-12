@@ -6,6 +6,7 @@ using Microsoft.Web.WebView2.Core;
 using OpenClaw.Shared;
 using OpenClawTray.Chat;
 using OpenClawTray.Chat.Explorations;
+using OpenClawTray.Chat.Native;
 using OpenClawTray.Helpers;
 using OpenClawTray.Services;
 using System;
@@ -21,7 +22,7 @@ public sealed partial class ChatWindow : WindowEx
     private string _gatewayUrl;
     private string _token;
     private string _chatUrl;
-    private IDisposable? _reactorHost;
+    private IDisposable? _nativeHost;
     private IChatDataProvider? _mountedProvider;
     private bool _webViewInitialized;
     private bool _webViewMode;
@@ -184,25 +185,25 @@ public sealed partial class ChatWindow : WindowEx
         if (useLegacy)
             ShowWebViewSurface();
         else
-            ShowReactorSurface();
+            ShowNativeSurface();
     }
 
-    private void ShowReactorSurface()
+    private void ShowNativeSurface()
     {
         _webViewMode = false;
         WebView.Visibility = Visibility.Collapsed;
         LoadingRing.IsActive = false;
         LoadingRing.Visibility = Visibility.Collapsed;
         ErrorPanel.Visibility = Visibility.Collapsed;
-        TryMountReactorChat();
+        TryMountNativeChat();
     }
 
     private void ShowWebViewSurface()
     {
         _webViewMode = true;
 
-        // Tear down Reactor so the WebView2 owns the row.
-        DisposeReactorHost();
+        // Tear down native chat surface so the WebView2 owns the row.
+        DisposeNativeHost();
 
         ChatHost.Visibility = Visibility.Collapsed;
         PlaceholderPanel.Visibility = Visibility.Collapsed;
@@ -365,20 +366,20 @@ public sealed partial class ChatWindow : WindowEx
         WebView.CoreWebView2?.Navigate(_chatUrl);
     }
 
-    private void TryMountReactorChat()
+    private void TryMountNativeChat()
     {
         var app = App.Current as App;
         var provider = app?.ChatProvider;
         Func<string, Task>? readAloud = app is null ? null : app.SpeakChatTextAsync;
 
-        if (_reactorHost is not null && ReferenceEquals(_mountedProvider, provider))
+        if (_nativeHost is not null && ReferenceEquals(_mountedProvider, provider))
         {
             PlaceholderPanel.Visibility = Visibility.Collapsed;
             ChatHost.Visibility = Visibility.Visible;
             return;
         }
 
-        DisposeReactorHost();
+        DisposeNativeHost();
 
         if (provider is null)
         {
@@ -389,17 +390,17 @@ public sealed partial class ChatWindow : WindowEx
 
         PlaceholderPanel.Visibility = Visibility.Collapsed;
         ChatHost.Visibility = Visibility.Visible;
-        _reactorHost = ((Window)this).MountReactorChat(
+        _nativeHost = ((Window)this).MountNativeChat(
             ChatHost,
             provider,
             onReadAloud: readAloud);
         _mountedProvider = provider;
     }
 
-    private void DisposeReactorHost()
+    private void DisposeNativeHost()
     {
-        var host = _reactorHost;
-        _reactorHost = null;
+        var host = _nativeHost;
+        _nativeHost = null;
         _mountedProvider = null;
         try { host?.Dispose(); } catch { /* tear-down race — non-fatal */ }
     }
@@ -518,7 +519,7 @@ public sealed partial class ChatWindow : WindowEx
         OpenClawTray.Chat.DebugChatSurfaceOverrides.Changed -= OnDebugOverrideChanged;
         ChatExplorationState.Changed -= OnExplorationChanged;
         IsClosed = true;
-        DisposeReactorHost();
+        DisposeNativeHost();
         Close();
     }
 
@@ -599,3 +600,4 @@ public sealed partial class ChatWindow : WindowEx
         return "(unparseable)";
     }
 }
+

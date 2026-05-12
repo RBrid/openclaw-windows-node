@@ -427,7 +427,7 @@ public partial class App : Application
             new AppLogger(),
             _dispatcherQueue is null
                 ? null
-                : OpenClawTray.Chat.ReactorChatHostExtensions.AsPost(_dispatcherQueue));
+                : OpenClawTray.Chat.Native.NativeChatHostExtensions.AsPost(_dispatcherQueue));
         DiagnosticsJsonlService.Configure(DataPath);
         DiagnosticsJsonlService.Write("app.start", new
         {

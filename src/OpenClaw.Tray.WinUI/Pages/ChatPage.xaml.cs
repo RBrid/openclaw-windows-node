@@ -4,6 +4,7 @@ using Microsoft.Web.WebView2.Core;
 using OpenClaw.Chat;
 using OpenClaw.Shared;
 using OpenClawTray.Chat;
+using OpenClawTray.Chat.Native;
 using OpenClawTray.Helpers;
 using OpenClawTray.Services;
 using OpenClawTray.Services.Connection;
@@ -17,7 +18,7 @@ namespace OpenClawTray.Pages;
 public sealed partial class ChatPage : Page
 {
     private HubWindow? _hub;
-    private IDisposable? _reactorHost;
+    private IDisposable? _nativeHost;
     private IChatDataProvider? _mountedProvider;
     private string? _chatUrl;
     private bool _webViewInitialized;
@@ -33,8 +34,8 @@ public sealed partial class ChatPage : Page
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        // Tear down Reactor (if mounted) and detach WebView2 nav handlers.
-        DisposeReactorHost();
+        // Tear down native chat surface (if mounted) and detach WebView2 nav handlers.
+        DisposeNativeHost();
 
         if (WebView.CoreWebView2 != null)
         {
@@ -124,7 +125,7 @@ public sealed partial class ChatPage : Page
         if (useLegacy)
             ShowWebViewSurface(forceNavigate: urlChanged);
         else
-            ShowReactorSurface();
+            ShowNativeSurface();
     }
 
     private static string? TryComputeChatUrl(SettingsManager settings)
@@ -141,9 +142,9 @@ public sealed partial class ChatPage : Page
             : null;
     }
 
-    private void ShowReactorSurface()
+    private void ShowNativeSurface()
     {
-        // Hide WebView2-specific UI; mount Reactor host (idempotent).
+        // Hide WebView2-specific UI; mount the native chat surface (idempotent).
         _webViewMode = false;
         WebView.Visibility = Visibility.Collapsed;
         LoadingRing.IsActive = false;
@@ -158,14 +159,14 @@ public sealed partial class ChatPage : Page
         var provider = app?.ChatProvider;
         Func<string, Task>? readAloud = app is null ? null : app.SpeakChatTextAsync;
 
-        if (_reactorHost is not null && ReferenceEquals(_mountedProvider, provider))
+        if (_nativeHost is not null && ReferenceEquals(_mountedProvider, provider))
         {
             PlaceholderPanel.Visibility = Visibility.Collapsed;
             ChatHost.Visibility = Visibility.Visible;
             return;
         }
 
-        DisposeReactorHost();
+        DisposeNativeHost();
 
         if (provider is null)
         {
@@ -176,7 +177,7 @@ public sealed partial class ChatPage : Page
 
         PlaceholderPanel.Visibility = Visibility.Collapsed;
         ChatHost.Visibility = Visibility.Visible;
-        _reactorHost = ((Window)_hub!).MountReactorChat(
+        _nativeHost = ((Window)_hub!).MountNativeChat(
             ChatHost,
             provider,
             onReadAloud: readAloud);
@@ -185,9 +186,9 @@ public sealed partial class ChatPage : Page
 
     private void ShowWebViewSurface(bool forceNavigate = false)
     {
-        // Tear down Reactor (so the WebView2 owns the row) and (re)init WebView2.
+        // Tear down native chat surface (so the WebView2 owns the row) and (re)init WebView2.
         _webViewMode = true;
-        DisposeReactorHost();
+        DisposeNativeHost();
 
         ChatHost.Visibility = Visibility.Collapsed;
         PlaceholderPanel.Visibility = Visibility.Collapsed;
@@ -213,10 +214,10 @@ public sealed partial class ChatPage : Page
         _ = InitializeWebViewAsync(_hub.Settings);
     }
 
-    private void DisposeReactorHost()
+    private void DisposeNativeHost()
     {
-        var host = _reactorHost;
-        _reactorHost = null;
+        var host = _nativeHost;
+        _nativeHost = null;
         _mountedProvider = null;
         try { host?.Dispose(); } catch { /* tear-down race — non-fatal */ }
     }
@@ -342,3 +343,4 @@ public sealed partial class ChatPage : Page
         catch { /* shell launch failed — silently ignore */ }
     }
 }
+
