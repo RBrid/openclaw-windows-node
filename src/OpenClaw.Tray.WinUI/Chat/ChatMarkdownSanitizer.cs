@@ -27,19 +27,21 @@ namespace OpenClawTray.Chat;
 /// (SSRF, tracking pixels, beacon attacks) and (b) attach
 /// click-to-navigate hyperlinks that look like trusted assistant prose.
 /// Rendering URL-bearing constructs as inert text breaks both vectors at
-/// the source without modifying the vendored Reactor parser.
+/// the source before any renderer can activate links or remote media.
 /// </remarks>
 internal static class ChatMarkdownSanitizer
 {
+    public readonly record struct TextSegment(string Text, bool IsStrong);
+
     /// <summary>
     /// Flatten a parsed Markdown link's display text + destination URI
     /// into a single inert plain-text string. Used by the
-    /// <c>OpenClawChatTimeline</c> Reactor <c>LinkBuilder</c> hook so
+    /// <c>OpenClawChatTimeline</c> rendering path so
     /// that links the parser DOES emit (bare URLs, autolinks
     /// <c>&lt;https://…&gt;</c>) collapse to non-clickable text instead
     /// of <see cref="System.Windows.Documents.Hyperlink"/>-style runs.
     /// Pure function — kept here so it can be unit-tested without a
-    /// dependency on the WinUI / Reactor projects.
+    /// dependency on the WinUI project.
     /// </summary>
     /// <remarks>
     /// Output rules:
@@ -211,7 +213,7 @@ internal static class ChatMarkdownSanitizer
                     // ``[![alt](http://img)](http://other)``) is also
                     // flattened. Without this the inner ``![alt](src)``
                     // syntax would be preserved verbatim and re-parsed
-                    // by Reactor as a real image fetch.
+                    // by a markdown renderer as a real image fetch.
                     sb.Append(Sanitize(linkText));
                     if (!string.IsNullOrEmpty(url))
                     {
@@ -239,6 +241,159 @@ internal static class ChatMarkdownSanitizer
         }
 
         return sb.ToString();
+    }
+
+    public static IReadOnlyList<TextSegment> SanitizeAndSplitStrongEmphasis(string? text) =>
+        SplitStrongEmphasis(Sanitize(text));
+
+    private static IReadOnlyList<TextSegment> SplitStrongEmphasis(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return Array.Empty<TextSegment>();
+
+        var segments = new List<TextSegment>();
+        var normal = new StringBuilder(text.Length);
+        int i = 0;
+        int n = text.Length;
+        bool atLineStart = true;
+
+        void FlushNormal()
+        {
+            if (normal.Length == 0)
+                return;
+
+            segments.Add(new TextSegment(normal.ToString(), IsStrong: false));
+            normal.Clear();
+        }
+
+        while (i < n)
+        {
+            if (atLineStart && TryReadFenceOpen(text, i, n, out var fenceChar, out int fenceLen, out int afterFenceLine))
+            {
+                AppendFencedBlock(text, normal, ref i, n, fenceChar, fenceLen, afterFenceLine);
+                atLineStart = true;
+                continue;
+            }
+
+            if (text[i] == '`')
+            {
+                AppendInlineCode(text, normal, ref i, n);
+                atLineStart = false;
+                continue;
+            }
+
+            if (i + 1 < n && text[i] == '*' && text[i + 1] == '*' && !IsEscaped(text, i))
+            {
+                var close = FindStrongClose(text, i + 2);
+                if (close > i + 2)
+                {
+                    FlushNormal();
+                    segments.Add(new TextSegment(text.Substring(i + 2, close - i - 2), IsStrong: true));
+                    i = close + 2;
+                    atLineStart = false;
+                    continue;
+                }
+            }
+
+            normal.Append(text[i]);
+            atLineStart = text[i] == '\n';
+            i++;
+        }
+
+        FlushNormal();
+        return segments;
+    }
+
+    private static void AppendFencedBlock(string text, StringBuilder output, ref int i, int n, char fenceChar, int fenceLen, int afterFenceLine)
+    {
+        output.Append(text, i, afterFenceLine - i);
+        i = afterFenceLine;
+
+        while (i < n)
+        {
+            int nextLine = text.IndexOf('\n', i);
+            int segEnd = nextLine < 0 ? n : nextLine + 1;
+            output.Append(text, i, segEnd - i);
+            var line = text.AsSpan(i, segEnd - i);
+            i = segEnd;
+
+            var trimmed = line.TrimStart();
+            if (trimmed.Length < fenceLen)
+                continue;
+
+            if (trimmed[0] != fenceChar)
+                continue;
+
+            bool allFence = true;
+            for (int k = 0; k < fenceLen; k++)
+            {
+                if (trimmed[k] != fenceChar) { allFence = false; break; }
+            }
+
+            if (allFence)
+                break;
+        }
+    }
+
+    private static void AppendInlineCode(string text, StringBuilder output, ref int i, int n)
+    {
+        int runLen = 0;
+        while (i + runLen < n && text[i + runLen] == '`') runLen++;
+
+        int searchFrom = i + runLen;
+        while (searchFrom < n)
+        {
+            int found = text.IndexOf('`', searchFrom);
+            if (found < 0)
+                break;
+
+            int foundLen = 0;
+            while (found + foundLen < n && text[found + foundLen] == '`') foundLen++;
+            if (foundLen == runLen)
+            {
+                var end = found + foundLen;
+                output.Append(text, i, end - i);
+                i = end;
+                return;
+            }
+
+            searchFrom = found + foundLen;
+        }
+
+        output.Append(text, i, n - i);
+        i = n;
+    }
+
+    private static int FindStrongClose(string text, int start)
+    {
+        var i = start;
+        while (i + 1 < text.Length)
+        {
+            if (text[i] == '`')
+            {
+                var previous = i;
+                AppendInlineCode(text, new StringBuilder(), ref i, text.Length);
+                if (i == previous)
+                    i++;
+                continue;
+            }
+
+            if (text[i] == '*' && text[i + 1] == '*' && !IsEscaped(text, i))
+                return i;
+
+            i++;
+        }
+
+        return -1;
+    }
+
+    private static bool IsEscaped(string text, int index)
+    {
+        var slashCount = 0;
+        for (var i = index - 1; i >= 0 && text[i] == '\\'; i--)
+            slashCount++;
+
+        return slashCount % 2 == 1;
     }
 
     private static bool TryParseReferenceDefinition(

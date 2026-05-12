@@ -1,10 +1,10 @@
 using OpenClaw.Chat;
-using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using OpenClawTray.Chat;
 using OpenClawTray.Chat.Explorations;
+using OpenClawTray.FunctionalUI.Hosting;
 using System;
 using WinUIEx;
 
@@ -18,8 +18,8 @@ namespace OpenClawTray.Windows;
 /// </summary>
 public sealed class ChatExplorationsWindow : WindowEx
 {
-    private ReactorHost? _panelHost;
-    private ReactorHost? _chatHost;
+    private FunctionalHostControl? _panelHost;
+    private FunctionalHostControl? _chatHost;
 
     public ChatExplorationsWindow()
     {
@@ -51,11 +51,13 @@ public sealed class ChatExplorationsWindow : WindowEx
         Content = grid;
 
         // Panel 은 자체 Window 의 Content 에 마운트할 수 없으므로 Border 타깃으로.
-        _panelHost = new ReactorHost(this) { ContentTarget = panelTarget };
+        _panelHost = new FunctionalHostControl();
         _panelHost.Mount(new ChatExplorationsPanel());
+        panelTarget.Child = _panelHost;
 
-        _chatHost = new ReactorHost(this) { ContentTarget = chatTarget };
+        _chatHost = new FunctionalHostControl();
         _chatHost.Mount(new OpenClawChatRoot(new FakeChatDataProvider(), initialThreadId: null));
+        chatTarget.Child = _chatHost;
 
         Closed += (_, _) =>
         {

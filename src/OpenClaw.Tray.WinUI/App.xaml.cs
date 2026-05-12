@@ -65,7 +65,7 @@ public partial class App : Application
     /// Raised after the tray-wide settings have been saved (either via the
     /// SettingsPage Save button or a direct toggle from the tray menu).
     /// Subscribers can refresh UI that depends on a setting (e.g. switching
-    /// the chat surface between native Reactor and WebView2).
+    /// the chat surface between native chat and WebView2).
     /// </summary>
     public event EventHandler? SettingsChanged;
     public event EventHandler? ChatProviderChanged;
@@ -427,7 +427,7 @@ public partial class App : Application
             new AppLogger(),
             _dispatcherQueue is null
                 ? null
-                : OpenClawTray.Chat.ReactorChatHostExtensions.AsPost(_dispatcherQueue));
+                : OpenClawTray.Chat.FunctionalChatHostExtensions.AsPost(_dispatcherQueue));
         DiagnosticsJsonlService.Configure(DataPath);
         DiagnosticsJsonlService.Write("app.start", new
         {

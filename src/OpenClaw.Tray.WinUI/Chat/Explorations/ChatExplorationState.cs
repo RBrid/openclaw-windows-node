@@ -106,7 +106,7 @@ public enum ToolBurstStyle
 /// <summary>
 /// Process-wide live state for the chat exploration toggles. Mirrors the
 /// dependency-property surface of v2's <c>ChatExplorationPreview</c> XAML
-/// control, but as plain static properties so the Reactor chat tree
+/// control, but as plain static properties so the native chat tree
 /// (<see cref="OpenClawChatRoot"/>, <see cref="OpenClawChatTimeline"/>,
 /// <see cref="OpenClawComposer"/>) can read them at render time and any
 /// component can subscribe to <see cref="Changed"/> to invalidate.

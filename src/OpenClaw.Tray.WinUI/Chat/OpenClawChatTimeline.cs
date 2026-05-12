@@ -1,20 +1,20 @@
 using OpenClaw.Chat;
-using OpenClaw.Chat;
 using OpenClawTray.Helpers;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI;
-using Microsoft.UI.Reactor;
-using Microsoft.UI.Reactor.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
+using OpenClawTray.FunctionalUI;
+using OpenClawTray.FunctionalUI.Core;
 using OpenClawTray.Chat.Explorations;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
-using static Microsoft.UI.Reactor.Factories;
-using static Microsoft.UI.Reactor.Core.Theme;
+using static OpenClawTray.FunctionalUI.Factories;
+using static OpenClawTray.FunctionalUI.Core.Theme;
 
 namespace OpenClawTray.Chat;
 
@@ -68,102 +68,46 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
     const double FollowThreshold = 60;
 
     // SECURITY (chat-rubber-duck HIGH 1 / MEDIUM 3): chat-bubble Markdown is
-    // rendered with a hardened options object that:
+    // rendered as sanitized inert text that:
     //   1. Renders images as inert ``[Image: <alt>]`` text (no Uri fetch) —
     //      blocks SSRF / tracking-pixel beacons triggered by a compromised
     //      gateway, malicious tool output, or a prompt-injected model.
     //   2. Pre-strips inline link / image / ref-def syntax via
     //      <see cref="ChatMarkdownSanitizer.Sanitize(string?)"/> so explicit
     //      ``[text](url)`` syntax never reaches the parser.
-    //   3. Wires the Reactor
-    //      <see cref="Microsoft.UI.Reactor.Markdown.MarkdownOptions.LinkBuilder"/>
-    //      hook (vendored edit, see ``external/reactor/README.md``) to
-    //      collapse any link the parser DOES emit — bare URLs and
-    //      ``<https://…>`` autolinks that the sanitizer can't strip
-    //      without breaking prose — into an inert ``RichTextRun`` carrying
-    //      visible URL text but no NavigateUri.
-    //   4. Renders raw HTML blocks as selectable plain text. Reactor's default
-    //      behavior is currently also text-only, but keep the chat surface's
-    //      trust boundary explicit so a future vendored update cannot turn
-    //      ``<img>``, ``<a>``, ``<script>``, SVG, or iframe blocks into active UI.
+    //   3. Renders raw HTML blocks as selectable plain text.
     //      Net effect: no click-to-navigate hyperlink or network-fetching
     //      image can be manufactured by untrusted Markdown inside a chat bubble.
-    internal static readonly Microsoft.UI.Reactor.Markdown.MarkdownOptions _markdownOptions = new()
-    {
-        CodeFontFamily = "Cascadia Code, Cascadia Mono, Consolas",
-        // Inert link rendering: emit the link's display text followed by
-        // the visible URL in parentheses, all as a non-clickable
-        // RichTextRun. No NavigateUri is constructed anywhere in this
-        // path, so even an attacker-controlled bare URL or autolink
-        // cannot become a hyperlink.
-        LinkBuilder = (inlines, uri) =>
-        {
-            var sb = new System.Text.StringBuilder();
-            foreach (var inline in inlines)
+    private static Element SafeMarkdownText(string? text) =>
+        TextBlock(string.Empty)
+            .Set(t =>
             {
-                switch (inline)
-                {
-                    case Microsoft.UI.Reactor.Core.RichTextRun r: sb.Append(r.Text); break;
-                    case Microsoft.UI.Reactor.Core.RichTextHyperlink h: sb.Append(h.Text); break;
-                    case Microsoft.UI.Reactor.Core.RichTextLineBreak: sb.Append(' '); break;
-                }
+                t.TextWrapping = TextWrapping.Wrap;
+                t.IsTextSelectionEnabled = true;
+                ApplySafeMarkdownInlines(t, text);
+            });
+
+    private static void ApplySafeMarkdownInlines(TextBlock textBlock, string? text)
+    {
+        textBlock.Inlines.Clear();
+
+        foreach (var segment in ChatMarkdownSanitizer.SanitizeAndSplitStrongEmphasis(text))
+        {
+            if (segment.Text.Length == 0)
+                continue;
+
+            if (segment.IsStrong)
+            {
+                var bold = new Bold();
+                bold.Inlines.Add(new Run { Text = segment.Text });
+                textBlock.Inlines.Add(bold);
             }
-            var text = ChatMarkdownSanitizer.FlattenLinkToInertText(sb.ToString(), uri?.ToString());
-            return new Microsoft.UI.Reactor.Core.RichTextRun(text);
-        },
-        CodeBlock = (code, lang) =>
-        {
-            var header = lang is { Length: > 0 }
-                ? (Element)Caption(lang).Foreground(Theme.TertiaryText).Padding(12, 6, 12, 0)
-                : Empty();
-            return Border(
-                VStack(0,
-                    header,
-                    TextBlock(code)
-                        .Set(t =>
-                        {
-                            t.FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas");
-                            t.FontSize = 13;
-                            t.TextWrapping = TextWrapping.Wrap;
-                            t.IsTextSelectionEnabled = true;
-                        })
-                        .Foreground(Theme.PrimaryText)
-                        .Padding(12, 8, 12, 12)
-                )
-            ).Background(Theme.Ref("CardBackgroundFillColorDefaultBrush"))
-             .WithBorder(Theme.DividerStroke, 1)
-             .CornerRadius(8).Margin(0, 4, 0, 4);
-        },
-        Table = (rows, aligns) =>
-        {
-            // Simple bordered table
-            return Border(
-                VStack(0, rows)
-            ).WithBorder(Theme.DividerStroke, 1)
-             .CornerRadius(4).Margin(0, 4, 0, 4);
-        },
-        // Raw HTML from the gateway is not trusted markup. Display it as
-        // literal selectable text rather than delegating to Reactor defaults
-        // or any HTML-capable renderer.
-        HtmlBlock = rawHtml =>
-            TextBlock(ChatMarkdownSanitizer.FlattenRawHtmlBlockToInertText(rawHtml))
-                .Set(t =>
-                {
-                    t.TextWrapping = TextWrapping.Wrap;
-                    t.IsTextSelectionEnabled = true;
-                })
-                .Foreground(Theme.TertiaryText),
-        // Defense-in-depth for any image syntax that survives sanitization
-        // (e.g. reference-style images): render an inert caption-styled
-        // placeholder; never instantiate a Uri-bound BitmapImage.
-        Image = (alt, _) =>
-        {
-            var label = string.IsNullOrEmpty(alt) ? "[Image]" : $"[Image: {alt}]";
-            return Caption(label)
-                .Foreground(Theme.TertiaryText)
-                .Set(t => t.IsTextSelectionEnabled = true);
-        },
-    };
+            else
+            {
+                textBlock.Inlines.Add(new Run { Text = segment.Text });
+            }
+        }
+    }
 
     static string FormatToolLabel(ChatTimelineItem e)    {
         var text = e.Text ?? "";
@@ -826,7 +770,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             // Assistant bubble — subtle gray with primary text. Radius/Padding
             // come from ChatExplorationState (BubbleCornerRadius + PaddingDensity).
             var card = Border(
-                Markdown(ChatMarkdownSanitizer.Sanitize(entry.Text), _markdownOptions)
+                SafeMarkdownText(entry.Text)
             ).Background(assistantBubbleBg)
              .Set(b =>
              {

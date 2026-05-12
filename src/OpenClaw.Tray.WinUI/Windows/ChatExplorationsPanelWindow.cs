@@ -1,7 +1,7 @@
-using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using OpenClawTray.FunctionalUI.Hosting;
 using WinUIEx;
 
 namespace OpenClawTray.Windows;
@@ -13,7 +13,7 @@ namespace OpenClawTray.Windows;
 /// </summary>
 public sealed class ChatExplorationsPanelWindow : WindowEx
 {
-    private Microsoft.UI.Reactor.Hosting.ReactorHost? _host;
+    private FunctionalHostControl? _host;
 
     public ChatExplorationsPanelWindow()
     {
@@ -24,8 +24,9 @@ public sealed class ChatExplorationsPanelWindow : WindowEx
         var target = new Border();
         Content = target;
 
-        _host = new ReactorHost(this) { ContentTarget = target };
+        _host = new FunctionalHostControl();
         _host.Mount(new OpenClawTray.Chat.Explorations.ChatExplorationsPanel());
+        target.Child = _host;
 
         Closed += (_, _) =>
         {

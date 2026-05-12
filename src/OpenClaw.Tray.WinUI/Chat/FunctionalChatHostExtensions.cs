@@ -1,20 +1,19 @@
 using OpenClaw.Chat;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Reactor;
-using Microsoft.UI.Reactor.Hosting;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using OpenClawTray.FunctionalUI.Hosting;
 
 namespace OpenClawTray.Chat;
 
 /// <summary>
-/// Helper for hosting the <see cref="OpenClawChatRoot"/> Reactor tree
-/// inside an existing XAML window/page. The Reactor render loop renders
-/// into a target <see cref="Border"/> (via <see cref="ReactorHost.ContentTarget"/>)
+/// Helper for hosting the <see cref="OpenClawChatRoot"/> FunctionalUI tree
+/// inside an existing XAML window/page. The FunctionalUI host renders
+/// into a target <see cref="Border"/>
 /// rather than replacing <see cref="Window.Content"/>, so the surrounding
 /// XAML chrome (TitleBar, NavigationView, popup header, ...) is preserved.
 /// </summary>
-public static class ReactorChatHostExtensions
+public static class FunctionalChatHostExtensions
 {
     /// <summary>
     /// Builds an "post to UI thread" callback suitable for
@@ -36,10 +35,10 @@ public static class ReactorChatHostExtensions
 
     /// <summary>
     /// Mount <see cref="OpenClawChatRoot"/> into <paramref name="target"/>.
-    /// Returns an <see cref="IDisposable"/> that releases the Reactor host
+    /// Returns an <see cref="IDisposable"/> that releases the FunctionalUI host
     /// when the page/window unloads.
     /// </summary>
-    public static IDisposable MountReactorChat(
+    public static IDisposable MountFunctionalChat(
         this Window window,
         Border target,
         IChatDataProvider provider,
@@ -50,8 +49,19 @@ public static class ReactorChatHostExtensions
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(provider);
 
-        var host = new ReactorHost(window) { ContentTarget = target };
+        var host = new FunctionalHostControl();
         host.Mount(new OpenClawChatRoot(provider, initialThreadId, onReadAloud));
-        return host;
+        target.Child = host;
+        return new MountedFunctionalHost(target, host);
+    }
+
+    private sealed class MountedFunctionalHost(Border target, FunctionalHostControl host) : IDisposable
+    {
+        public void Dispose()
+        {
+            host.Dispose();
+            if (ReferenceEquals(target.Child, host))
+                target.Child = null;
+        }
     }
 }

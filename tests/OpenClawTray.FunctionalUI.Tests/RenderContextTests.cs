@@ -59,6 +59,29 @@ public sealed class RenderContextTests
         Assert.Equal(1, ranCount);
     }
 
+    [Fact]
+    public void UseReducer_UpdaterUsesLatestHookValue()
+    {
+        var ctx = new RenderContext();
+        var value = 0;
+        Action<Func<int, int>> update = _ => { };
+
+        Render(ctx, () =>
+        {
+            (value, update) = ctx.UseReducer(0, threadSafe: true);
+        });
+
+        update(prev => prev + 1);
+        update(prev => prev + 1);
+
+        Render(ctx, () =>
+        {
+            (value, update) = ctx.UseReducer(0, threadSafe: true);
+        });
+
+        Assert.Equal(2, value);
+    }
+
     private static void Render(RenderContext ctx, Action render)
     {
         var effects = new List<Action>();

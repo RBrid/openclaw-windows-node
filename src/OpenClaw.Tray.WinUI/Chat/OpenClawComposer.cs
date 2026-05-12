@@ -1,18 +1,18 @@
 using OpenClaw.Chat;
 using OpenClawTray.Helpers;
 using Microsoft.UI;
-using Microsoft.UI.Reactor;
-using Microsoft.UI.Reactor.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using OpenClawTray.FunctionalUI;
+using OpenClawTray.FunctionalUI.Core;
 using OpenClawTray.Chat.Explorations;
 using System;
 using System.Collections.Generic;
 using Windows.UI;
-using static Microsoft.UI.Reactor.Factories;
-using static Microsoft.UI.Reactor.Core.Theme;
+using static OpenClawTray.FunctionalUI.Factories;
+using static OpenClawTray.FunctionalUI.Core.Theme;
 
 namespace OpenClawTray.Chat;
 
@@ -30,10 +30,10 @@ namespace OpenClawTray.Chat;
 /// </list>
 ///
 /// Replaces the original <c>InputBar</c> + <c>StatusBar</c> pair from the
-/// vendored Reactor sample so our chat surface no longer carries two
+/// previous native chat prototype so our chat surface no longer carries two
 /// separate footer rows. The status, working indicator, and permission
 /// banner that <c>InputBar</c> used to render are preserved here above the
-/// composer, scoped via <see cref="Expr"/>.
+/// composer.
 /// </summary>
 public record OpenClawComposerProps(
     string ConnectionState,
@@ -167,17 +167,13 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                 tb.IsEnabled = isConnected;
                 tb.CornerRadius = composerCornerRadius;
             })
-            .OnMount(fe =>
+            .OnKeyDown((_, e) =>
             {
-                var t = (Microsoft.UI.Xaml.Controls.TextBox)fe;
-                t.KeyDown += (s, e) =>
+                if (e.Key == global::Windows.System.VirtualKey.Enter)
                 {
-                    if (e.Key == global::Windows.System.VirtualKey.Enter)
-                    {
-                        e.Handled = true;
-                        sendActionRef.Current();
-                    }
-                };
+                    e.Handled = true;
+                    sendActionRef.Current();
+                }
             });
 
         // ── Row 3: action icons (right-aligned) ────────────────────────
@@ -244,7 +240,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
                 b.Padding = new Thickness(10, 4, 10, 4);
                 b.MinWidth = sendButtonSize + 4; b.MinHeight = sendButtonSize - 4;
                 b.CornerRadius = composerCornerRadius;
-                b.Background = OpenClaw.Chat.Res.Get("SystemFillColorCriticalBrush");
+                b.Background = (Brush)Microsoft.UI.Xaml.Application.Current.Resources["SystemFillColorCriticalBrush"];
             }).AutomationName(LocalizationHelper.GetString("Chat_Composer_Tooltip_Stop"));
         }
         else if (!Props.TurnActive && ChatExplorationState.SendIconShow)
@@ -352,7 +348,7 @@ public sealed class OpenClawComposer : Component<OpenClawComposerProps>
             // Build three groups of RadioMenuItem entries. Section headers are
             // disabled, semibold, indented further toward the menu's left edge
             // so they read as labels rather than rows.
-            var menuItems = new List<Microsoft.UI.Reactor.Core.MenuFlyoutItemBase>();
+            var menuItems = new List<OpenClawTray.FunctionalUI.Core.MenuFlyoutItemBase>();
             // Header items: shift LEFT toward the dot column by zeroing the outer
             // padding (default ≈11px). Combined with SemiBold + slightly smaller
             // size they read as section labels rather than rows.

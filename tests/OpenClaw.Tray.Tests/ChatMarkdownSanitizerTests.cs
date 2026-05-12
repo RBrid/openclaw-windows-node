@@ -73,7 +73,7 @@ public class ChatMarkdownSanitizerTests
         var result = ChatMarkdownSanitizer.Sanitize(input);
         Assert.Contains("ref: https://attacker.example", result);
         // The original link-definition syntax must not survive — without
-        // the bracket-colon prefix Reactor's md4c can't resolve [x][ref].
+        // the bracket-colon prefix a markdown renderer can't resolve [x][ref].
         Assert.DoesNotContain("[ref]:", result);
     }
 
@@ -176,6 +176,108 @@ public class ChatMarkdownSanitizerTests
         // of which contain URL syntax.
         var input = "**Steps**:\n\n1. Open `Settings.cs`\n2. Edit the value\n";
         Assert.Equal(input, ChatMarkdownSanitizer.Sanitize(input));
+    }
+
+    [Fact]
+    public void SanitizeAndSplitStrongEmphasis_BoldText_BecomesStrongSegment()
+    {
+        var segments = ChatMarkdownSanitizer.SanitizeAndSplitStrongEmphasis("For **Boston**: pack **rain gear**.");
+
+        Assert.Collection(segments,
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal("For ", segment.Text);
+            },
+            segment =>
+            {
+                Assert.True(segment.IsStrong);
+                Assert.Equal("Boston", segment.Text);
+            },
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal(": pack ", segment.Text);
+            },
+            segment =>
+            {
+                Assert.True(segment.IsStrong);
+                Assert.Equal("rain gear", segment.Text);
+            },
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal(".", segment.Text);
+            });
+    }
+
+    [Fact]
+    public void SanitizeAndSplitStrongEmphasis_CodeSpansStayLiteral()
+    {
+        var segments = ChatMarkdownSanitizer.SanitizeAndSplitStrongEmphasis("Use `**literal**` then **bold**.");
+
+        Assert.Collection(segments,
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal("Use `**literal**` then ", segment.Text);
+            },
+            segment =>
+            {
+                Assert.True(segment.IsStrong);
+                Assert.Equal("bold", segment.Text);
+            },
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal(".", segment.Text);
+            });
+    }
+
+    [Fact]
+    public void SanitizeAndSplitStrongEmphasis_CodeSpanCanPrecedeClosingDelimiter()
+    {
+        var segments = ChatMarkdownSanitizer.SanitizeAndSplitStrongEmphasis("Use **`code`** now.");
+
+        Assert.Collection(segments,
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal("Use ", segment.Text);
+            },
+            segment =>
+            {
+                Assert.True(segment.IsStrong);
+                Assert.Equal("`code`", segment.Text);
+            },
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal(" now.", segment.Text);
+            });
+    }
+
+    [Fact]
+    public void SanitizeAndSplitStrongEmphasis_LinksRemainInertText()
+    {
+        var segments = ChatMarkdownSanitizer.SanitizeAndSplitStrongEmphasis("Read **[docs](https://example.com)** now.");
+
+        Assert.Collection(segments,
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal("Read ", segment.Text);
+            },
+            segment =>
+            {
+                Assert.True(segment.IsStrong);
+                Assert.Equal("docs (https://example.com)", segment.Text);
+            },
+            segment =>
+            {
+                Assert.False(segment.IsStrong);
+                Assert.Equal(" now.", segment.Text);
+            });
     }
 
     // ── chat rubber-duck round 2 LOW 3: code-block coverage gaps ──

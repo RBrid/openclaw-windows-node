@@ -1,22 +1,22 @@
 using Microsoft.UI;
-using Microsoft.UI.Reactor;
-using Microsoft.UI.Reactor.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using OpenClawTray.FunctionalUI;
+using OpenClawTray.FunctionalUI.Core;
 using OpenClawTray.Windows;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Windows.UI;
-using static Microsoft.UI.Reactor.Factories;
-using static Microsoft.UI.Reactor.Core.Theme;
+using static OpenClawTray.FunctionalUI.Factories;
+using static OpenClawTray.FunctionalUI.Core.Theme;
 
 namespace OpenClawTray.Chat.Explorations;
 
 /// <summary>
-/// Reactor 좌측 패널: ChatExplorationState 의 모든 토글을 슬라이더/체크박스/콤보박스/
+/// FunctionalUI 좌측 패널: ChatExplorationState 의 모든 토글을 슬라이더/체크박스/콤보박스/
 /// ColorPicker 로 묶어서 보여준다. 변경하면 ChatExplorationState 가 즉시 업데이트되고
 /// 옆 라이브 챗이 다시 그려진다 (각 챗 컴포넌트가 Changed 를 구독 중).
 /// </summary>

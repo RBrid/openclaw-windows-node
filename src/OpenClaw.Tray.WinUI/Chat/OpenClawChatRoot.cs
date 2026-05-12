@@ -1,18 +1,17 @@
 using OpenClaw.Chat;
-using OpenClaw.Chat;
 using OpenClawTray.Helpers;
-using Microsoft.UI.Reactor;
-using Microsoft.UI.Reactor.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using OpenClawTray.FunctionalUI;
+using OpenClawTray.FunctionalUI.Core;
 using OpenClawTray.Chat.Explorations;
-using static Microsoft.UI.Reactor.Factories;
-using static Microsoft.UI.Reactor.Core.Theme;
+using static OpenClawTray.FunctionalUI.Factories;
+using static OpenClawTray.FunctionalUI.Core.Theme;
 
 namespace OpenClawTray.Chat;
 
 /// <summary>
-/// Reactor root component used to render the OpenClaw chat surface (Header
+    /// FunctionalUI root component used to render the OpenClaw chat surface (Header
 /// + Timeline + InputBar + StatusBar). The surrounding XAML window/page owns
 /// session navigation (via the existing NavigationView/ConversationsPage) so
 /// no Sidebar is rendered here.
@@ -35,7 +34,7 @@ public sealed class OpenClawChatRoot : Component
 
     public override Element Render()
     {
-        // Subscribe to ChatExplorationState — without this, Reactor may skip
+        // Subscribe to ChatExplorationState — without this, FunctionalUI may skip
         // re-rendering child Components (Composer/Timeline) because the props
         // they receive don't change. Bumping this Root's state invalidates
         // the whole tree so toggles always show in the live preview.
@@ -172,7 +171,7 @@ public sealed class OpenClawChatRoot : Component
         // Note: Loading is also handled here (rather than via early return)
         // so that the OUTER Grid layout (header / divider / body / composer
         // rows) stays structurally identical across all preview states. A
-        // structurally stable tree keeps Reactor's reconciliation cheap and
+        // structurally stable tree keeps FunctionalUI's reconciliation cheap and
         // avoids tearing down the timeline + composer subtrees, which was
         // observed to race with subsequent ComboBox SelectionChanged events
         // in the explorations panel and "lock" the dropdown after the first
