@@ -2909,4 +2909,7 @@ On your gateway host (Mac/Linux), run:
   <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
     <value>Connection lost — response interrupted.</value>
   </data>
+  <data name="VoiceSettingsPage_TestVoiceButtonText.Text" xml:space="preserve">
+    <value>Test Voice Input</value>
+  </data>
 </root>

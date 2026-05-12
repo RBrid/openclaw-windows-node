@@ -38,7 +38,7 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
     private GatewayUsageStatusInfo? _usageStatus;
     private GatewayCostUsageInfo? _usageCost;
     private readonly Dictionary<string, string> _pendingRequestMethods = new();
-    private readonly Dictionary<string, TaskCompletionSource<bool>> _pendingChatSendRequests = new();
+    private readonly Dictionary<string, TaskCompletionSource<ChatSendResult>> _pendingChatSendRequests = new();
     private readonly object _pendingRequestLock = new();
     private readonly object _pendingChatSendLock = new();
     private readonly object _sessionsLock = new();
@@ -182,6 +182,7 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
     /// notifications and is unaffected.
     /// </summary>
     public event EventHandler<ChatMessageInfo>? ChatMessageReceived;
+    public event EventHandler<AgentEventInfo>? ChatEventReceived;
 
     /// <summary>Raised when a device token is received from the gateway during hello-ok handshake.</summary>
     public event EventHandler<DeviceTokenReceivedEventArgs>? DeviceTokenReceived;
@@ -259,6 +260,11 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
 
     public async Task SendChatMessageAsync(string message, string? sessionKey = null, string? sessionId = null)
     {
+        _ = await SendChatMessageForRunAsync(message, sessionKey, sessionId).ConfigureAwait(false);
+    }
+
+    public async Task<ChatSendResult> SendChatMessageForRunAsync(string message, string? sessionKey = null, string? sessionId = null)
+    {
         if (!IsConnected)
             throw new InvalidOperationException("Gateway connection is not open");
         if (string.IsNullOrWhiteSpace(message))
@@ -269,7 +275,7 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
             : sessionKey.Trim();
 
         var requestId = Guid.NewGuid().ToString();
-        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<ChatSendResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         TrackPendingChatSend(requestId, completion);
 
         // The gateway's `chat.send` validates strictly on (sessionKey, message,
@@ -300,12 +306,16 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
             throw new TimeoutException("Timed out waiting for chat.send response from gateway");
         }
 
-        await completion.Task;
+        var result = await completion.Task.ConfigureAwait(false);
         _logger.Info($"Sent chat message ({message.Length} chars)");
+        return result;
     }
 
     Task IOperatorGatewayClient.SendChatMessageAsync(string message, string? sessionKey) =>
         SendChatMessageAsync(message, sessionKey);
+
+    Task<ChatSendResult> IOperatorGatewayClient.SendChatMessageForRunAsync(string message, string? sessionKey) =>
+        SendChatMessageForRunAsync(message, sessionKey);
 
     /// <summary>
     /// Fetches the conversation transcript for a session. The gateway applies
@@ -582,7 +592,7 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
         return TrySendTrackedRequestAsync("cron.update", new { id, patch });
     }
 
-    public async Task RequestCronRunsAsync(string? id = null, int limit = 50, int offset = 0)
+    public async Task RequestCronRunsAsync(string? id = null, int limit = 20, int offset = 0)
     {
         // Wire format uses "id" consistently with cron.run / cron.remove
         await SendTrackedRequestAsync("cron.runs", new { id, limit, offset });
@@ -1005,7 +1015,7 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
         _pendingWizardResponses.Clear();
     }
 
-    private void TrackPendingChatSend(string requestId, TaskCompletionSource<bool> completion)
+    private void TrackPendingChatSend(string requestId, TaskCompletionSource<ChatSendResult> completion)
     {
         lock (_pendingChatSendLock)
         {
@@ -1021,7 +1031,7 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
         }
     }
 
-    private TaskCompletionSource<bool>? TakePendingChatSend(string? requestId)
+    private TaskCompletionSource<ChatSendResult>? TakePendingChatSend(string? requestId)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -1094,7 +1104,7 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
                 return;
             }
 
-            pendingChatSend.TrySetResult(true);
+            pendingChatSend.TrySetResult(ParseChatSendResult(root));
             return;
         }
 
@@ -1325,6 +1335,36 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
             default:
                 return false;
         }
+    }
+
+    private static ChatSendResult ParseChatSendResult(JsonElement root)
+    {
+        string? runId = null;
+        string? sessionKey = null;
+        var cached = false;
+
+        if (root.TryGetProperty("payload", out var payload) && payload.ValueKind == JsonValueKind.Object)
+        {
+            if (payload.TryGetProperty("runId", out var runIdProp))
+                runId = runIdProp.GetString();
+            if (payload.TryGetProperty("sessionKey", out var sessionKeyProp))
+                sessionKey = sessionKeyProp.GetString();
+        }
+
+        if (root.TryGetProperty("meta", out var meta) &&
+            meta.ValueKind == JsonValueKind.Object &&
+            meta.TryGetProperty("cached", out var cachedProp) &&
+            cachedProp.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            cached = cachedProp.GetBoolean();
+        }
+
+        return new ChatSendResult
+        {
+            RunId = runId,
+            SessionKey = sessionKey,
+            Cached = cached
+        };
     }
 
     private void HandleRequestError(string? method, JsonElement root)
@@ -2117,6 +2157,7 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
         _logger.Debug($"Chat event received: len={rawText.Length}");
         
         if (!root.TryGetProperty("payload", out var payload)) return;
+        EmitRawChatEvent(payload);
 
         // Extract sessionKey for the timeline-driving event.
         var sessionKey = "main";
@@ -2247,6 +2288,38 @@ public class OpenClawGatewayClient : WebSocketClientBase, IOperatorGatewayClient
         catch (Exception ex)
         {
             _logger.Warn($"ChatMessageReceived handler threw: {ex.Message}");
+        }
+    }
+
+    private void EmitRawChatEvent(JsonElement payload)
+    {
+        try
+        {
+            var stream = "chat";
+            if (payload.TryGetProperty("message", out var message) &&
+                message.TryGetProperty("role", out var roleProp))
+            {
+                stream = roleProp.GetString() ?? stream;
+            }
+            else if (payload.TryGetProperty("role", out var legacyRoleProp))
+            {
+                stream = legacyRoleProp.GetString() ?? stream;
+            }
+
+            var evt = new AgentEventInfo
+            {
+                RunId = payload.TryGetProperty("runId", out var rid) ? rid.GetString() ?? "" : "",
+                Seq = payload.TryGetProperty("seq", out var seqProp) && seqProp.ValueKind == JsonValueKind.Number ? seqProp.GetInt32() : 0,
+                Stream = stream,
+                Ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Data = payload.Clone(),
+                SessionKey = payload.TryGetProperty("sessionKey", out var sk) ? sk.GetString() : null
+            };
+            ChatEventReceived?.Invoke(this, evt);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"Failed to emit chat event: {ex.Message}");
         }
     }
 

@@ -276,10 +276,8 @@ public sealed partial class ChatWindow : WindowEx
     }
 
     /// <summary>
-    /// Bug 4 (PR #274): exposes a script executor wrapping CoreWebView2.ExecuteScriptAsync
-    /// so callers (e.g. App.ShowChatWindow) can invoke BootstrapMessageInjector without
-    /// the WebView2 control field leaking out of this window. Returns null if the
-    /// CoreWebView2 isn't ready yet.
+    /// Exposes a script executor wrapping CoreWebView2.ExecuteScriptAsync without
+    /// leaking the WebView2 control field. Returns null if CoreWebView2 is not ready.
     /// </summary>
     public Func<string, Task<string>>? TryGetScriptExecutor()
     {
@@ -325,8 +323,6 @@ public sealed partial class ChatWindow : WindowEx
                     ErrorPanel.Visibility = Visibility.Collapsed;
                     WebView.Visibility = Visibility.Visible;
                     RequestChatInputFocus();
-                    OpenClawTray.Services.BootstrapMessageInjector.ScriptExecutor exec = script => WebView.CoreWebView2.ExecuteScriptAsync(script).AsTask();
-                    _ = OpenClawTray.Services.BootstrapMessageInjector.InjectAsync(exec, ((App)Microsoft.UI.Xaml.Application.Current).Settings, initialDelayMs: 500);
                 }
             };
 

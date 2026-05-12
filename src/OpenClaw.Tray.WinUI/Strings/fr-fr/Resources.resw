@@ -2861,4 +2861,7 @@ Sur votre hôte passerelle (Mac/Linux), exécutez :
   <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
     <value>Connexion perdue — réponse interrompue.</value>
   </data>
+  <data name="VoiceSettingsPage_TestVoiceButtonText.Text" xml:space="preserve">
+    <value>Tester la saisie vocale</value>
+  </data>
 </root>

@@ -2861,4 +2861,7 @@
   <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
     <value>連線已中斷 — 回覆已中斷。</value>
   </data>
+  <data name="VoiceSettingsPage_TestVoiceButtonText.Text" xml:space="preserve">
+    <value>測試語音輸入</value>
+  </data>
 </root>

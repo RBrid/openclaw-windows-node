@@ -2862,4 +2862,7 @@ Voer op uw gateway-host (Mac/Linux) uit:
   <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
     <value>Verbinding verbroken — antwoord onderbroken.</value>
   </data>
+  <data name="VoiceSettingsPage_TestVoiceButtonText.Text" xml:space="preserve">
+    <value>Spraakinvoer testen</value>
+  </data>
 </root>
