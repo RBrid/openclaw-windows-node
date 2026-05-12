@@ -128,8 +128,7 @@ public sealed partial class ChatPage : Page
         // gateway URL change) would leave the WebView pointing at a stale URL.
         var freshUrl = TryComputeChatUrl(_hub.Settings);
         var urlChanged = !string.Equals(freshUrl, _chatUrl, StringComparison.Ordinal);
-        if (freshUrl is not null)
-            _chatUrl = freshUrl;
+        _chatUrl = freshUrl;
 
         var useLegacy = OpenClawTray.Chat.DebugChatSurfaceOverrides.ResolveUseLegacy(
             OpenClawTray.Chat.DebugChatSurfaceOverrides.HubChat,
@@ -158,6 +157,7 @@ public sealed partial class ChatPage : Page
     {
         // Hide WebView2-specific UI; mount FunctionalUI host (idempotent).
         _webViewMode = false;
+        StopWebViewNavigation();
         WebView.Visibility = Visibility.Collapsed;
         LoadingRing.IsActive = false;
         LoadingRing.Visibility = Visibility.Collapsed;
@@ -214,16 +214,55 @@ public sealed partial class ChatPage : Page
             // Already initialized — show it. The caller's `forceNavigate`
             // flag is informational; we always re-navigate so a settings
             // change (token / gateway URL) reaches the WebView.
-            ErrorPanel.Visibility = Visibility.Collapsed;
-            WebView.Visibility = Visibility.Visible;
-            if (!string.IsNullOrEmpty(_chatUrl))
-                WebView.CoreWebView2?.Navigate(_chatUrl);
+            if (!NavigateWebViewToCurrentChatUrl())
+                ShowMissingChatCredentialError();
             _ = forceNavigate; // explicit: parameter is currently advisory
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_chatUrl))
+        {
+            ShowMissingChatCredentialError();
             return;
         }
 
         if (_hub?.Settings is null) return;
         _ = InitializeWebViewAsync(_hub.Settings);
+    }
+
+    private bool NavigateWebViewToCurrentChatUrl()
+    {
+        if (string.IsNullOrEmpty(_chatUrl) || WebView.CoreWebView2 is null)
+            return false;
+
+        ErrorPanel.Visibility = Visibility.Collapsed;
+        WebView.Visibility = Visibility.Visible;
+        WebView.CoreWebView2.Navigate(_chatUrl);
+        return true;
+    }
+
+    private void ShowMissingChatCredentialError()
+    {
+        StopWebViewNavigation();
+        LoadingRing.IsActive = false;
+        LoadingRing.Visibility = Visibility.Collapsed;
+        WebView.Visibility = Visibility.Collapsed;
+        PlaceholderPanel.Visibility = Visibility.Collapsed;
+        ErrorPanel.Visibility = Visibility.Visible;
+        ErrorText.Text = "Open Connection settings to finish pairing with a gateway.";
+    }
+
+    private void StopWebViewNavigation()
+    {
+        try
+        {
+            WebView.CoreWebView2?.Stop();
+            WebView.CoreWebView2?.Navigate("about:blank");
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"ChatPage WebView stop failed: {ex.Message}");
+        }
     }
 
     private void DisposeFunctionalHost()

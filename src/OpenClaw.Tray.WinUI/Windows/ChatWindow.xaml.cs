@@ -190,6 +190,7 @@ public sealed partial class ChatWindow : WindowEx
     private void ShowFunctionalSurface()
     {
         _webViewMode = false;
+        StopWebViewNavigation();
         WebView.Visibility = Visibility.Collapsed;
         LoadingRing.IsActive = false;
         LoadingRing.Visibility = Visibility.Collapsed;
@@ -209,14 +210,53 @@ public sealed partial class ChatWindow : WindowEx
 
         if (_webViewInitialized)
         {
-            ErrorPanel.Visibility = Visibility.Collapsed;
-            WebView.Visibility = Visibility.Visible;
-            if (!string.IsNullOrEmpty(_chatUrl))
-                WebView.CoreWebView2?.Navigate(_chatUrl);
+            if (!NavigateWebViewToCurrentChatUrl())
+                ShowMissingChatCredentialError();
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_chatUrl))
+        {
+            ShowMissingChatCredentialError();
             return;
         }
 
         _ = InitializeWebViewAsync();
+    }
+
+    private bool NavigateWebViewToCurrentChatUrl()
+    {
+        if (string.IsNullOrEmpty(_chatUrl) || WebView.CoreWebView2 is null)
+            return false;
+
+        ErrorPanel.Visibility = Visibility.Collapsed;
+        WebView.Visibility = Visibility.Visible;
+        WebView.CoreWebView2.Navigate(_chatUrl);
+        return true;
+    }
+
+    private void ShowMissingChatCredentialError()
+    {
+        StopWebViewNavigation();
+        LoadingRing.IsActive = false;
+        LoadingRing.Visibility = Visibility.Collapsed;
+        WebView.Visibility = Visibility.Collapsed;
+        PlaceholderPanel.Visibility = Visibility.Collapsed;
+        ErrorPanel.Visibility = Visibility.Visible;
+        ErrorText.Text = "Unable to load chat. The gateway URL or token is not available.";
+    }
+
+    private void StopWebViewNavigation()
+    {
+        try
+        {
+            WebView.CoreWebView2?.Stop();
+            WebView.CoreWebView2?.Navigate("about:blank");
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"ChatWindow WebView stop failed: {ex.Message}");
+        }
     }
 
     /// <summary>

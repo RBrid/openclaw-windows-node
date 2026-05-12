@@ -402,6 +402,19 @@ public sealed class RenderContext
         });
     }
 
+    internal void RunEffectCleanups()
+    {
+        foreach (var hook in _hooks)
+        {
+            if (hook is not EffectHookState effectHook)
+                continue;
+
+            var cleanup = effectHook.Cleanup;
+            effectHook.Cleanup = null;
+            cleanup?.Invoke();
+        }
+    }
+
     public Ref<T> UseRef<T>(T initialValue)
     {
         if (_hookIndex >= _hooks.Count)
@@ -818,7 +831,12 @@ public sealed class FunctionalHostControl : ContentControl, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
         _disposed = true;
+        _rootComponent?.Context.RunEffectCleanups();
+        _rootContext?.RunEffectCleanups();
+        _renderer.Dispose();
+        Content = null;
     }
 
     private void RequestRender()
@@ -853,7 +871,11 @@ public sealed class FunctionalHostControl : ContentControl, IDisposable
             Content = _renderer.Render(tree, "root", effects);
 
             foreach (var effect in effects)
-                _dispatcherQueue.TryEnqueue(() => effect());
+                _dispatcherQueue.TryEnqueue(() =>
+                {
+                    if (!_disposed)
+                        effect();
+                });
         }
         catch (Exception ex)
         {
@@ -882,6 +904,19 @@ internal sealed class UiRenderer(Action requestRender)
     public UIElement Render(Element element, string path, List<Action> effects)
     {
         return RenderElement(element, path, effects);
+    }
+
+    public void Dispose()
+    {
+        foreach (var component in _components.Values)
+            component.Context.RunEffectCleanups();
+
+        foreach (var control in _controls.Values)
+            DetachChildren(control);
+
+        _components.Clear();
+        _controls.Clear();
+        _mountedPaths.Clear();
     }
 
     private UIElement RenderElement(Element element, string path, List<Action> effects)

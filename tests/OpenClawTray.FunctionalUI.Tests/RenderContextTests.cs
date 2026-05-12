@@ -60,6 +60,32 @@ public sealed class RenderContextTests
     }
 
     [Fact]
+    public void RunEffectCleanups_InvokesRegisteredCleanupOnce()
+    {
+        var ctx = new RenderContext();
+        var cleanupCount = 0;
+
+        Render(ctx, () => ctx.UseEffect(() => () => cleanupCount++, Array.Empty<object>()));
+
+        ctx.RunEffectCleanups();
+        ctx.RunEffectCleanups();
+
+        Assert.Equal(1, cleanupCount);
+    }
+
+    [Fact]
+    public void UseEffect_WithChangingDependencies_RunsPreviousCleanup()
+    {
+        var ctx = new RenderContext();
+        var cleanupCount = 0;
+
+        Render(ctx, () => ctx.UseEffect(() => () => cleanupCount++, new object[] { 1 }));
+        Render(ctx, () => ctx.UseEffect(() => () => cleanupCount++, new object[] { 2 }));
+
+        Assert.Equal(1, cleanupCount);
+    }
+
+    [Fact]
     public void UseReducer_UpdaterUsesLatestHookValue()
     {
         var ctx = new RenderContext();
