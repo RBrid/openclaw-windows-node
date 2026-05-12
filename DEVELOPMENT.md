@@ -34,7 +34,7 @@ A comprehensive guide for building, running, and contributing to the OpenClaw Wi
 
 ## Project Structure
 
-This monorepo contains three projects:
+This monorepo contains these main projects:
 
 ```
 openclaw-windows-hub/
@@ -43,6 +43,13 @@ openclaw-windows-hub/
 │   │   ├── OpenClawGatewayClient.cs  # WebSocket client for gateway protocol
 │   │   ├── Models.cs                 # Data models (SessionInfo, ChannelHealth, etc.)
 │   │   └── IOpenClawLogger.cs        # Logging interface
+│   │
+│   ├── OpenClaw.Chat/                # Native chat model and reducer
+│   │   ├── ChatModels.cs             # Threads, entries, events, provider contract
+│   │   └── ChatTimelineReducer.cs    # Timeline state transitions
+│   │
+│   ├── OpenClawTray.FunctionalUI/    # Small in-repo declarative WinUI helper
+│   │   └── FunctionalUI.cs           # Components, hooks, elements, host control
 │   │
 │   ├── OpenClaw.Tray.WinUI/          # WinUI 3 system tray application (primary)
 │   │   ├── App.xaml.cs               # Main application, tray icon, gateway connection
@@ -55,14 +62,6 @@ openclaw-windows-hub/
 │       ├── OpenClaw.cs               # Extension entry point
 │       ├── OpenClawCommandsProvider.cs  # Command provider implementation
 │       └── Pages/                    # XAML pages for command results
-│
-├── external/
-│   └── reactor/                      # Vendored Microsoft.UI.Reactor framework
-│       ├── src/Reactor/              # Reactor functional UI framework (MIT)
-│       ├── src/Reactor.Analyzers/    # Roslyn analyzers (bundled)
-│       ├── src/Reactor.Localization.Generator/
-│       ├── README.md                       # Refresh procedure + local edits log
-│       └── NOTICE.md                       # Third-party attribution
 │
 ├── tests/
 │   ├── OpenClaw.Shared.Tests/        # Unit tests for shared library
@@ -228,27 +227,27 @@ This creates a standalone executable with all dependencies bundled.
 
 ## Architecture Overview
 
-### Native chat surface (Reactor + Chat.UI)
+### Native chat surface (FunctionalUI + OpenClaw.Chat)
 
 The Hub Chat tab (`src/OpenClaw.Tray.WinUI/Pages/ChatPage.xaml`) and the
 tray ChatWindow popup (`src/OpenClaw.Tray.WinUI/Windows/ChatWindow.xaml`)
-render their conversations with native WinUI 3 controls via the vendored
-`Microsoft.UI.Reactor` framework and the `Chat.UI` sample components in
-`external/reactor/`. The previous WebView2-hosted gateway web client is
-gone for those two surfaces (the onboarding overlay still uses WebView2
-and is tracked separately).
+render their conversations with native WinUI 3 controls via the in-repo
+`OpenClawTray.FunctionalUI` helper and `OpenClaw.Chat` model/reducer code.
+The standard WebView2-hosted gateway web client remains available as a
+settings-controlled fallback.
 
 **Layering:**
 
 ```
-external/reactor/Chat.UI         ChatTimeline · InputBar · SessionHeader · StatusBar
-        ▲ depends on
-external/reactor/Chat.Model      ChatThread · ChatTimelineState · IChatDataProvider · ChatTimelineReducer
-        ▲ implemented by
-src/OpenClaw.Tray.WinUI/Chat/    OpenClawChatDataProvider (adapts OpenClawGatewayClient → IChatDataProvider)
-                                 OpenClawChatRoot         (Reactor Component composing the four UI parts)
-                                 ReactorChatHostExtensions (mounts Reactor into a XAML <Border>)
+src/OpenClaw.Tray.WinUI/Chat/    OpenClawChatTimeline · OpenClawComposer · OpenClawSessionHeader
+                                 OpenClawChatDataProvider (adapts OpenClawGatewayClient → IChatDataProvider)
+                                 OpenClawChatRoot         (FunctionalUI component composing the chat surface)
+                                 FunctionalChatHostExtensions (mounts FunctionalUI into a XAML <Border>)
                                  IChatGatewayBridge       (testability seam over OpenClawGatewayClient)
+        ▲ depends on
+src/OpenClaw.Chat/               ChatThread · ChatTimelineState · IChatDataProvider · ChatTimelineReducer
+        ▲ rendered by
+src/OpenClawTray.FunctionalUI/   Component · RenderContext · FunctionalHostControl · WinUI elements
 ```
 
 **Lifecycle:**
@@ -257,17 +256,16 @@ src/OpenClaw.Tray.WinUI/Chat/    OpenClawChatDataProvider (adapts OpenClawGatewa
   created in `InitializeGatewayClient` and disposed inside
   `UnsubscribeGatewayEvents`. Both the Hub Chat tab and the tray ChatWindow
   consume the same provider — opening either surface shows identical state.
-- Each XAML host (`ChatPage`, `ChatWindow`) mounts its own `ReactorHost`
+- Each XAML host (`ChatPage`, `ChatWindow`) mounts its own `FunctionalHostControl`
   with `ContentTarget` pointing at a `<Border x:Name="ChatHost"/>`. The
   surrounding chrome (NavigationView, popup header) stays XAML.
 - Provider events fire on the WebSocket-receive thread; the provider
   marshals `Changed` / `NotificationRequested` callbacks through a
-  dispatcher post delegate (`DispatcherQueue.AsPost()`), so Reactor
+  dispatcher post delegate (`DispatcherQueue.AsPost()`), so FunctionalUI
   components observe state on the UI thread.
 
-**Adding new chat behavior:** model new events in `Chat.Model`'s
-`ChatEvent` discriminated union (vendored — keep edits minimal; see
-`external/reactor/README.md`), handle them in `ChatTimelineReducer`, and
+**Adding new chat behavior:** model new events in `OpenClaw.Chat`'s
+`ChatEvent` discriminated union, handle them in `ChatTimelineReducer`, and
 emit them from `OpenClawChatDataProvider` in response to gateway signals.
 
 ### Gateway WebSocket Connection

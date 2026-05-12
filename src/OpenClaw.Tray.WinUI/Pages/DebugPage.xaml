@@ -103,7 +103,7 @@
 
             <!-- Debug Overrides — process-wide, per-surface chat UI override.
                  Lets engineers compare the legacy WebView and the native
-                 Reactor chat surfaces side-by-side without flipping the
+                 native chat surfaces side-by-side without flipping the
                  user-facing "Use standard Gateway Chat interface" setting. -->
             <Expander x:Name="OverridesExpander" IsExpanded="True"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
