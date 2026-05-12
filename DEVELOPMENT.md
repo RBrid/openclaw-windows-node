@@ -34,7 +34,7 @@ A comprehensive guide for building, running, and contributing to the OpenClaw Wi
 
 ## Project Structure
 
-This monorepo contains three projects:
+This monorepo contains these main projects:
 
 ```
 openclaw-windows-hub/
@@ -43,6 +43,13 @@ openclaw-windows-hub/
 │   │   ├── OpenClawGatewayClient.cs  # WebSocket client for gateway protocol
 │   │   ├── Models.cs                 # Data models (SessionInfo, ChannelHealth, etc.)
 │   │   └── IOpenClawLogger.cs        # Logging interface
+│   │
+│   ├── OpenClaw.Chat/                # Native chat model and reducer
+│   │   ├── ChatModels.cs             # Threads, entries, events, provider contract
+│   │   └── ChatTimelineReducer.cs    # Timeline state transitions
+│   │
+│   ├── OpenClawTray.FunctionalUI/    # Small in-repo declarative WinUI helper
+│   │   └── FunctionalUI.cs           # Components, hooks, elements, host control
 │   │
 │   ├── OpenClaw.Tray.WinUI/          # WinUI 3 system tray application (primary)
 │   │   ├── App.xaml.cs               # Main application, tray icon, gateway connection
@@ -228,27 +235,39 @@ This creates a standalone executable with all dependencies bundled.
 
 ## Architecture Overview
 
-### Native chat surface (Reactor + Chat.UI)
+### Native chat surface (Reactor + OpenClaw.Chat)
 
 The Hub Chat tab (`src/OpenClaw.Tray.WinUI/Pages/ChatPage.xaml`) and the
 tray ChatWindow popup (`src/OpenClaw.Tray.WinUI/Windows/ChatWindow.xaml`)
 render their conversations with native WinUI 3 controls via the vendored
-`Microsoft.UI.Reactor` framework and the `Chat.UI` sample components in
-`external/reactor/`. The previous WebView2-hosted gateway web client is
-gone for those two surfaces (the onboarding overlay still uses WebView2
-and is tracked separately).
+`Microsoft.UI.Reactor` framework in `external/reactor/` together with the
+in-repo `OpenClaw.Chat` model/reducer project. The previous
+WebView2-hosted gateway web client is gone for those two surfaces (the
+onboarding overlay still uses WebView2 and is tracked separately).
+
+> Upstream master uses an alternative `OpenClawTray.FunctionalUI`
+> rendering host with `OpenClaw.Chat` for models. The CompanionApp
+> branch keeps the Reactor-based rendering pipeline because the chat
+> components (`OpenClawChatRoot`, `OpenClawChatTimeline`,
+> `OpenClawComposer`, explorations panel) are all written against
+> `Microsoft.UI.Reactor`. `OpenClawTray.FunctionalUI` and
+> `FunctionalChatHostExtensions` remain in the repo and are still
+> compiled, so additional surfaces can opt into either host.
 
 **Layering:**
 
 ```
-external/reactor/Chat.UI         ChatTimeline · InputBar · SessionHeader · StatusBar
-        ▲ depends on
-external/reactor/Chat.Model      ChatThread · ChatTimelineState · IChatDataProvider · ChatTimelineReducer
+external/reactor/Reactor          Microsoft.UI.Reactor framework (Component, RenderContext, Factories)
+        ▲ used by
+src/OpenClaw.Chat/                ChatThread · ChatTimelineState · IChatDataProvider · ChatTimelineReducer · SessionHeader
         ▲ implemented by
 src/OpenClaw.Tray.WinUI/Chat/    OpenClawChatDataProvider (adapts OpenClawGatewayClient → IChatDataProvider)
-                                 OpenClawChatRoot         (Reactor Component composing the four UI parts)
+                                 OpenClawChatRoot         (Reactor Component composing the chat surface)
+                                 OpenClawChatTimeline · OpenClawComposer (Reactor sub-components)
                                  ReactorChatHostExtensions (mounts Reactor into a XAML <Border>)
+                                 FunctionalChatHostExtensions (alt FunctionalUI host, retained from upstream)
                                  IChatGatewayBridge       (testability seam over OpenClawGatewayClient)
+src/OpenClawTray.FunctionalUI/   Component · RenderContext · FunctionalHostControl (alt host, retained from upstream)
 ```
 
 **Lifecycle:**
@@ -265,10 +284,11 @@ src/OpenClaw.Tray.WinUI/Chat/    OpenClawChatDataProvider (adapts OpenClawGatewa
   dispatcher post delegate (`DispatcherQueue.AsPost()`), so Reactor
   components observe state on the UI thread.
 
-**Adding new chat behavior:** model new events in `Chat.Model`'s
-`ChatEvent` discriminated union (vendored — keep edits minimal; see
-`external/reactor/README.md`), handle them in `ChatTimelineReducer`, and
+**Adding new chat behavior:** model new events in `OpenClaw.Chat`'s
+`ChatEvent` discriminated union, handle them in `ChatTimelineReducer`, and
 emit them from `OpenClawChatDataProvider` in response to gateway signals.
+The vendored Reactor framework lives in `external/reactor/`; keep edits
+there minimal (see `external/reactor/README.md`).
 
 ### Gateway WebSocket Connection
 

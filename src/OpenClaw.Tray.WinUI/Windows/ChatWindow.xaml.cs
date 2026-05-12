@@ -190,6 +190,7 @@ public sealed partial class ChatWindow : WindowEx
     private void ShowReactorSurface()
     {
         _webViewMode = false;
+        StopWebViewNavigation();
         WebView.Visibility = Visibility.Collapsed;
         LoadingRing.IsActive = false;
         LoadingRing.Visibility = Visibility.Collapsed;
@@ -209,14 +210,53 @@ public sealed partial class ChatWindow : WindowEx
 
         if (_webViewInitialized)
         {
-            ErrorPanel.Visibility = Visibility.Collapsed;
-            WebView.Visibility = Visibility.Visible;
-            if (!string.IsNullOrEmpty(_chatUrl))
-                WebView.CoreWebView2?.Navigate(_chatUrl);
+            if (!NavigateWebViewToCurrentChatUrl())
+                ShowMissingChatCredentialError();
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_chatUrl))
+        {
+            ShowMissingChatCredentialError();
             return;
         }
 
         _ = InitializeWebViewAsync();
+    }
+
+    private bool NavigateWebViewToCurrentChatUrl()
+    {
+        if (string.IsNullOrEmpty(_chatUrl) || WebView.CoreWebView2 is null)
+            return false;
+
+        ErrorPanel.Visibility = Visibility.Collapsed;
+        WebView.Visibility = Visibility.Visible;
+        WebView.CoreWebView2.Navigate(_chatUrl);
+        return true;
+    }
+
+    private void ShowMissingChatCredentialError()
+    {
+        StopWebViewNavigation();
+        LoadingRing.IsActive = false;
+        LoadingRing.Visibility = Visibility.Collapsed;
+        WebView.Visibility = Visibility.Collapsed;
+        PlaceholderPanel.Visibility = Visibility.Collapsed;
+        ErrorPanel.Visibility = Visibility.Visible;
+        ErrorText.Text = "Unable to load chat. The gateway URL or token is not available.";
+    }
+
+    private void StopWebViewNavigation()
+    {
+        try
+        {
+            WebView.CoreWebView2?.Stop();
+            WebView.CoreWebView2?.Navigate("about:blank");
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"ChatWindow WebView stop failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -276,10 +316,8 @@ public sealed partial class ChatWindow : WindowEx
     }
 
     /// <summary>
-    /// Bug 4 (PR #274): exposes a script executor wrapping CoreWebView2.ExecuteScriptAsync
-    /// so callers (e.g. App.ShowChatWindow) can invoke BootstrapMessageInjector without
-    /// the WebView2 control field leaking out of this window. Returns null if the
-    /// CoreWebView2 isn't ready yet.
+    /// Exposes a script executor wrapping CoreWebView2.ExecuteScriptAsync without
+    /// leaking the WebView2 control field. Returns null if CoreWebView2 is not ready.
     /// </summary>
     public Func<string, Task<string>>? TryGetScriptExecutor()
     {
@@ -325,8 +363,6 @@ public sealed partial class ChatWindow : WindowEx
                     ErrorPanel.Visibility = Visibility.Collapsed;
                     WebView.Visibility = Visibility.Visible;
                     RequestChatInputFocus();
-                    OpenClawTray.Services.BootstrapMessageInjector.ScriptExecutor exec = script => WebView.CoreWebView2.ExecuteScriptAsync(script).AsTask();
-                    _ = OpenClawTray.Services.BootstrapMessageInjector.InjectAsync(exec, ((App)Microsoft.UI.Xaml.Application.Current).Settings, initialDelayMs: 500);
                 }
             };
 

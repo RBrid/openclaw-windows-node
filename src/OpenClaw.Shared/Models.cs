@@ -1732,6 +1732,13 @@ public class AgentEventInfo
     }
 }
 
+public sealed class ChatSendResult
+{
+    public string? RunId { get; init; }
+    public string? SessionKey { get; init; }
+    public bool Cached { get; init; }
+}
+
 // ── Node/Device Pairing ──
 
 public class PairingRequest

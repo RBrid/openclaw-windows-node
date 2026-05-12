@@ -2103,11 +2103,17 @@
   <data name="UsagePage_TextBlock_55.Text" xml:space="preserve">
     <value>提供者</value>
   </data>
-  <data name="Period7DaysButton.Content" xml:space="preserve">
+  <data name="Period7DaysItem.Text" xml:space="preserve">
     <value>7 天</value>
   </data>
-  <data name="Period30DaysButton.Content" xml:space="preserve">
+  <data name="Period30DaysItem.Text" xml:space="preserve">
     <value>30 天</value>
+  </data>
+  <data name="UsagePage_ProviderLoading.Text" xml:space="preserve">
+    <value>正在載入提供者…</value>
+  </data>
+  <data name="UsagePage_NoProviders.Text" xml:space="preserve">
+    <value>未設定任何提供者</value>
   </data>
   <data name="UsagePage_TextBlock_70.Text" xml:space="preserve">
     <value>提供者明細</value>
@@ -2860,5 +2866,8 @@
   </data>
   <data name="Chat_Notification_ConnectionInterrupted" xml:space="preserve">
     <value>連線已中斷 — 回覆已中斷。</value>
+  </data>
+  <data name="VoiceSettingsPage_TestVoiceButtonText.Text" xml:space="preserve">
+    <value>測試語音輸入</value>
   </data>
 </root>

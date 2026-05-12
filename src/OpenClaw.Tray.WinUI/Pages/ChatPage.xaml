@@ -11,7 +11,7 @@
         </Grid.RowDefinitions>
 
         <!-- Toolbar — Home/Refresh/DevTools only meaningful when WebView2 mode is active.
-             Collapsed by default in Reactor mode so the chat surface starts at the very top. -->
+             Collapsed by default in native Reactor mode so the chat surface starts at the very top. -->
         <Border x:Name="ToolbarBorder" Grid.Row="0"
                 Visibility="Collapsed"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -57,7 +57,7 @@
             </StackPanel>
         </Border>
 
-        <!-- Reactor host: native chat surface mounts its tree into this Border (default UI). -->
+        <!-- Reactor host: native chat surface mounts its Reactor tree into this Border (default UI). -->
         <Border x:Name="ChatHost" Grid.Row="1"/>
 
         <!-- WebView2 host: only created/used when "Use standard Gateway Chat interface" is enabled. -->
@@ -65,7 +65,23 @@
 
         <!-- Loading spinner shown while WebView2 navigates. -->
         <ProgressRing x:Name="LoadingRing" Grid.Row="1" IsActive="False"
-                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+        <StackPanel x:Name="WaitingPanel" Grid.Row="1"
+                    Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+            <TextBlock Text="💬" FontSize="48" HorizontalAlignment="Center"/>
+            <TextBlock Text="Waiting for chat to start…"
+                       Style="{StaticResource SubtitleTextBlockStyle}"
+                       HorizontalAlignment="Center"/>
+            <TextBlock x:Name="WaitingStatusText"
+                       Text="The gateway is connected; the chat surface is still coming online."
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="360"/>
+            <Button x:Name="RetryChatButton" Content="Retry" Click="OnRetryChat" Visibility="Collapsed"
+                    HorizontalAlignment="Center"/>
+        </StackPanel>
 
         <!-- Disconnected placeholder (shown when no provider yet). -->
         <StackPanel x:Name="PlaceholderPanel" Grid.Row="1"
