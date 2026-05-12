@@ -749,7 +749,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 entry.Id);
         }
 
-        Element RenderAssistantEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst)
+        Element RenderAssistantEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst, bool showAvatar)
         {
             if (string.IsNullOrEmpty(entry.Text))
                 return Empty();
@@ -758,12 +758,13 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             if (!showAsstBubbles)
                 return Empty();
 
-            // Avatar shown only on the FIRST entry of a same-sender burst.
-            // Mid-burst entries get a spacer so the bubble starts at the
-            // same X as the first bubble in the burst.
+            // Avatar shown only on the FIRST entry of a contiguous agent-side
+            // run (Assistant + ToolCall task cards count as one agent block).
+            // Mid-run entries get a spacer so the bubble stays aligned with
+            // the first bubble that does carry the avatar.
             Element leftSlot = !showAssistAvatar
                 ? Empty()
-                : (startsBurst
+                : (showAvatar
                     ? AssistantAvatar().VAlign(VerticalAlignment.Top)
                     : Border(Empty()).Size(36, 36));
 
@@ -816,7 +817,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // into `▸ ⚡ <ToolName> · <summary>  [Done]`; click expands the row
         // to reveal the original args + raw output (the previous chip body).
         // A single trailing `Tool · <time>` footer sits below the card.
-        Element RenderToolBurst(System.Collections.Generic.IReadOnlyList<ChatTimelineItem> entries)
+        Element RenderToolBurst(System.Collections.Generic.IReadOnlyList<ChatTimelineItem> entries, bool showAvatar)
         {
             // Status pill / glyph color resolved per entry (each row has its
             // own status). The body styling (block bg/border) is shared across
@@ -1138,7 +1139,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return VStack(2,
                     CardOf(pieces.ToArray()),
                     FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Stretch).Margin(36, 6, 24, 6);
+                ).HAlign(HorizontalAlignment.Stretch).Margin(36, 6, gutter, 6);
             }
 
             // TaskHeader: prepend a non-clickable header row to the card.
@@ -1170,7 +1171,200 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 return VStack(2,
                     CardOf(combined),
                     FooterCaption(timeStr ?? string.Empty, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
-                ).HAlign(HorizontalAlignment.Stretch).Margin(36, 6, 24, 6);
+                ).HAlign(HorizontalAlignment.Stretch).Margin(36, 6, gutter, 6);
+            }
+
+            // TaskList: per-step rows with a status icon (✓ / spinner / ✕)
+            // mirroring the AgentRunCard "Running steps / Completed steps"
+            // pattern from native-chat-v2. Now agent-grouped:
+            //  • left assistant avatar slot (matches RenderAssistantEntry)
+            //  • collapsible header showing aggregate status + a result-focused
+            //    one-line summary
+            //  • auto-expanded while any step is InProgress, auto-collapsed
+            //    when the whole burst is Success/Error. Click chevron to flip.
+            if (style == ToolBurstStyle.TaskList)
+            {
+                Element StatusGlyph(ChatToolCallStatus status, double size = 14)
+                {
+                    switch (status)
+                    {
+                        case ChatToolCallStatus.Success:
+                            return Caption("\uE73E")
+                                .Foreground(new SolidColorBrush(Color.FromArgb(0xFF, 0x28, 0xA0, 0x50)))
+                                .Set(t => { t.FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"); t.FontSize = size; })
+                                .HAlign(HorizontalAlignment.Center).VAlign(VerticalAlignment.Center);
+                        case ChatToolCallStatus.Error:
+                            return Caption("\uE711")
+                                .Foreground(themeBrush("SystemFillColorCriticalBrush"))
+                                .Set(t => { t.FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"); t.FontSize = size; })
+                                .HAlign(HorizontalAlignment.Center).VAlign(VerticalAlignment.Center);
+                        default:
+                            return ProgressRing()
+                                .Width(size).Height(size)
+                                .Set(p => { p.IsActive = true; p.Foreground = themeBrush("AccentFillColorDefaultBrush"); })
+                                .HAlign(HorizontalAlignment.Center).VAlign(VerticalAlignment.Center);
+                    }
+                }
+
+                // Result-focused one-liner: prefer the LAST entry's output
+                // (truncated). Fall back to status-specific text when output
+                // isn't available yet (e.g. mid-flight or error).
+                string SummaryLine()
+                {
+                    string Truncate(string s, int max)
+                    {
+                        s = s.Replace('\r', ' ').Replace('\n', ' ').Trim();
+                        return s.Length > max ? s.Substring(0, max - 1) + "…" : s;
+                    }
+                    var last = entries[entries.Count - 1];
+                    if (aggregateStatus == ChatToolCallStatus.InProgress)
+                    {
+                        var name = last.ToolName ?? "tool";
+                        return $"Working on {name}…";
+                    }
+                    if (aggregateStatus == ChatToolCallStatus.Error)
+                    {
+                        var errEntry = entries.FirstOrDefault(e => e.ToolResult == ChatToolCallStatus.Error) ?? last;
+                        var name = errEntry.ToolName ?? "tool";
+                        var msg = !string.IsNullOrWhiteSpace(errEntry.ToolOutput) ? errEntry.ToolOutput! : "failed";
+                        return Truncate($"{name} failed: {msg}", 80);
+                    }
+                    if (!string.IsNullOrWhiteSpace(last.ToolOutput)) return Truncate(last.ToolOutput!, 80);
+                    return $"Ran {entries.Count} step{(entries.Count == 1 ? "" : "s")}";
+                }
+                var summaryLine = SummaryLine();
+
+                // Auto state: expand while running, collapse when finished.
+                // expandedToolChips token marks "user override" — when present,
+                // flip the default. Simple flip-from-default (no value map).
+                var taskListToken = $"{entries[0].Id}:tasklist";
+                var defaultExpanded = aggregateStatus == ChatToolCallStatus.InProgress;
+                var hasOverride = expandedToolChips.Value.Contains(taskListToken);
+                var effectiveExpanded = hasOverride ? !defaultExpanded : defaultExpanded;
+                // ▲ when expanded (action: click to collapse up),
+                // ▼ when collapsed (action: click to expand down).
+                var chevron = effectiveExpanded ? "▲" : "▼";
+                var stepCountLabel = $"{stepCount} step{(stepCount == 1 ? "" : "s")}";
+
+                Action toggleTaskList = () =>
+                {
+                    var next = new HashSet<string>(expandedToolChips.Value);
+                    if (!next.Add(taskListToken)) next.Remove(taskListToken);
+                    expandedToolChips.Set(next);
+                };
+
+                // Per-step rows (used only when expanded).
+                var stepRows = new System.Collections.Generic.List<Element>();
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    var e = entries[i];
+                    var status = e.ToolResult ?? ChatToolCallStatus.InProgress;
+                    var label = e.ToolName ?? "tool";
+                    var prefix = StepPrefix(i);
+                    var labelText = string.IsNullOrEmpty(prefix) ? label : $"{prefix} {label}";
+                    var summary = ShortSummary(e);
+
+                    stepRows.Add(
+                        (FlexRow(
+                            Border(StatusGlyph(status))
+                                .Width(20).HAlign(HorizontalAlignment.Center).VAlign(VerticalAlignment.Center),
+                            VStack(2,
+                                Caption(labelText).Foreground(themeBrush("TextFillColorPrimaryBrush"))
+                                    .Set(t => { t.FontSize = 12; t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold; })
+                                    .VAlign(VerticalAlignment.Center),
+                                string.IsNullOrEmpty(summary)
+                                    ? Empty()
+                                    : Caption(summary).Foreground(TertiaryText)
+                                        .Set(t => { t.FontSize = 11; t.TextTrimming = TextTrimming.CharacterEllipsis; t.MaxLines = 1; })
+                            ).Flex(grow: 1)
+                        ) with { ColumnGap = 10 })
+                    );
+                }
+
+                // Header content: aggregate status (only for in-progress / error)
+                // · summary · step count · chevron. When the burst finished
+                // successfully, drop the leading ✓ — the summary line is
+                // already past-tense and the avatar carries identity.
+                var headerStatusSlot = aggregateStatus == ChatToolCallStatus.Success
+                    ? Empty()
+                    : (Element)Border(StatusGlyph(aggregateStatus, 14))
+                        .Width(20).HAlign(HorizontalAlignment.Center).VAlign(VerticalAlignment.Center);
+                var headerContent = (FlexRow(
+                    headerStatusSlot,
+                    Caption(summaryLine).Foreground(themeBrush("TextFillColorPrimaryBrush"))
+                        .Set(t =>
+                        {
+                            t.FontSize = 12;
+                            t.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+                            t.TextTrimming = TextTrimming.CharacterEllipsis;
+                            t.MaxLines = 1;
+                        })
+                        .VAlign(VerticalAlignment.Center).Flex(grow: 1),
+                    Caption(stepCountLabel).Foreground(TertiaryText)
+                        .Set(t => { t.FontSize = 11; }).VAlign(VerticalAlignment.Center),
+                    Caption(chevron).Foreground(TertiaryText)
+                        .Set(t => { t.FontSize = 10; }).VAlign(VerticalAlignment.Center)
+                ) with { ColumnGap = 8 }).Margin(0, 0, 0, 0);
+
+                var headerButton = Button(headerContent, toggleTaskList).Set(b =>
+                {
+                    b.HorizontalAlignment = HorizontalAlignment.Stretch;
+                    b.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                    b.Padding = bubblePadding;
+                    b.CornerRadius = new CornerRadius(8, 8, effectiveExpanded ? 0 : 8, effectiveExpanded ? 0 : 8);
+                }).Resources(r => r
+                    .Set("ButtonBackground", new SolidColorBrush(Colors.Transparent))
+                    .Set("ButtonBackgroundPointerOver", new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)))
+                    .Set("ButtonBackgroundPressed", new SolidColorBrush(Color.FromArgb(0x33, 0x00, 0x00, 0x00)))
+                    .Set("ButtonBorderBrush", new SolidColorBrush(Colors.Transparent))
+                    .Set("ButtonBorderBrushPointerOver", new SolidColorBrush(Colors.Transparent))
+                    .Set("ButtonBorderBrushPressed", new SolidColorBrush(Colors.Transparent)));
+
+                var cardChildren = new System.Collections.Generic.List<Element> { headerButton };
+                if (effectiveExpanded)
+                {
+                    // Body sits inside the same card; thin top border so the
+                    // header + body read as one unit but the divide is clear.
+                    cardChildren.Add(
+                        Border(VStack(8, stepRows.ToArray()))
+                            .Set(b =>
+                            {
+                                b.Padding = bubblePadding;
+                                b.BorderBrush = toolCardBorderBrush;
+                                b.BorderThickness = new Thickness(0, 1, 0, 0);
+                            })
+                    );
+                }
+
+                var listCard = Border(
+                    VStack(0, cardChildren.ToArray())
+                ).Background(toolCardBgBrush)
+                 .WithBorder(toolCardBorderBrush, 1)
+                 .CornerRadius(8)
+                 .Set(b => { b.MaxWidth = bubbleMaxWidth; b.HorizontalAlignment = HorizontalAlignment.Left; });
+
+                // Wrap with the assistant avatar slot so the burst visually
+                // anchors to the agent that produced it (and lines up with the
+                // assistant bubble that follows below). When this task card
+                // continues an agent-side run that already showed the avatar
+                // above, render an empty 36×36 spacer to keep alignment.
+                Element leftSlot = !showAssistAvatar
+                    ? Empty()
+                    : (showAvatar
+                        ? AssistantAvatar().VAlign(VerticalAlignment.Top)
+                        : Border(Empty()).Size(36, 36));
+
+                var burstRow = (FlexRow(
+                    leftSlot,
+                    listCard
+                ) with { ColumnGap = bubbleSideMargin }).HAlign(HorizontalAlignment.Left);
+
+                // When avatar is present, drop the left margin to 0 so the
+                // avatar fills the indent slot. Otherwise keep the original 36.
+                // No trailing footer — assistant follow-up bubble below carries
+                // the timestamp for the whole turn.
+                var leftMargin = showAssistAvatar ? 8.0 : 36.0;
+                return burstRow.HAlign(HorizontalAlignment.Stretch).Margin(leftMargin, 6, gutter, 6);
             }
 
             // FooterReframe: rows unchanged, footer becomes "Task · N steps · time".
@@ -1181,7 +1375,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                 CardOf(rows),
                 FooterCaption(footerText, HorizontalAlignment.Left).Margin(0, 2, 0, 0)
             ).HAlign(HorizontalAlignment.Stretch)
-             .Margin(36, 6, 24, 6);
+             .Margin(36, 6, gutter, 6);
         }
 
         // Legacy single-entry RenderToolEntry removed — all ToolCall rendering
@@ -1189,10 +1383,10 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
         // switch returns Empty() for ToolCall since the outer loop coalesces
         // the burst itself.
 
-        Element RenderEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst) => entry.Kind switch
+        Element RenderEntry(ChatTimelineItem entry, bool startsBurst, bool endsBurst, bool showAvatar) => entry.Kind switch
         {
             ChatTimelineItemKind.User => RenderUserEntry(entry, startsBurst, endsBurst),
-            ChatTimelineItemKind.Assistant => RenderAssistantEntry(entry, startsBurst, endsBurst),
+            ChatTimelineItemKind.Assistant => RenderAssistantEntry(entry, startsBurst, endsBurst, showAvatar),
             ChatTimelineItemKind.ToolCall => Empty(),
 
             // Reasoning — use a WinUI Expander with a "🧠 Thinking" header,
@@ -1282,6 +1476,13 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                        || a == ChatTimelineItemKind.Assistant
                        || a == ChatTimelineItemKind.ToolCall);
 
+        // Agent-side kinds share a single avatar across a contiguous run so
+        // a task card followed by an assistant bubble (or back-to-back
+        // assistant bubbles) reads as one speaker — only the topmost item
+        // carries the avatar; subsequent items render an aligned spacer.
+        static bool IsAgentSide(ChatTimelineItemKind k) =>
+            k == ChatTimelineItemKind.Assistant || k == ChatTimelineItemKind.ToolCall;
+
         var renderedEntries = new Element[Props.Entries.Count];
         for (int i = 0; i < Props.Entries.Count; i++)
         {
@@ -1290,6 +1491,7 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
             var nextKind = i < Props.Entries.Count - 1 ? Props.Entries[i + 1].Kind : (ChatTimelineItemKind?)null;
             var startsBurst = prevKind is null || !SameBurstKind(prevKind.Value, entry.Kind);
             var endsBurst = nextKind is null || !SameBurstKind(entry.Kind, nextKind.Value);
+            var showAvatar = !(prevKind is { } pk && IsAgentSide(pk) && IsAgentSide(entry.Kind));
 
             // Coalesce contiguous ToolCall entries into a single unified
             // burst card so a multi-step assistant turn reads as one tidy
@@ -1315,11 +1517,11 @@ public class OpenClawChatTimeline : Component<OpenClawChatTimelineProps>
                     burst.Add(Props.Entries[j]);
                     j++;
                 }
-                renderedEntries[i] = RenderToolBurst(burst).WithKey(entry.Id);
+                renderedEntries[i] = RenderToolBurst(burst, showAvatar).WithKey(entry.Id);
                 continue;
             }
 
-            renderedEntries[i] = RenderEntry(entry, startsBurst, endsBurst).WithKey(entry.Id);
+            renderedEntries[i] = RenderEntry(entry, startsBurst, endsBurst, showAvatar).WithKey(entry.Id);
         }
 
         // Inline "thinking" indicator rendered just below the last entry

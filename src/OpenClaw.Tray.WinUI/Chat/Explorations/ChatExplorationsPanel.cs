@@ -222,7 +222,8 @@ public class ChatExplorationsPanel : Component
                 ToolBurstStyle.Plain,
                 ToolBurstStyle.TaskHeader,
                 ToolBurstStyle.CompactSummary,
-                ToolBurstStyle.FooterReframe),
+                ToolBurstStyle.FooterReframe,
+                ToolBurstStyle.TaskList),
             Toggle("Show step numbers (1./2./3.)", ChatExplorationState.ShowStepNumbers,
                 v => ChatExplorationState.ShowStepNumbers = v)
         );

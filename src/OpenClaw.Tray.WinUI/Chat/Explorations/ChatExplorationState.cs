@@ -101,6 +101,11 @@ public enum ToolBurstStyle
     /// <summary>Plain rows but the trailing footer is reframed as
     /// "Task · N steps · time" so the task semantics are still surfaced.</summary>
     FooterReframe,
+    /// <summary>Per-step list with a status icon per row: ✓ for done,
+    /// spinning <c>ProgressRing</c> for in-progress, ✕ for errored.
+    /// Mirrors the AgentRunCard "Running steps / Completed steps" pattern
+    /// from native-chat-v2.</summary>
+    TaskList,
 }
 
 /// <summary>
@@ -389,7 +394,7 @@ public static class ChatExplorationState
 
     // ---- Tool burst (H) ----
 
-    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.Plain;
+    private static ToolBurstStyle _toolBurstStyle = ToolBurstStyle.TaskList;
     private static bool _showStepNumbers;
 
     /// <summary>
